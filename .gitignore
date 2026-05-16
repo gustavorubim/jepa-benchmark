@@ -5,7 +5,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-.coverage
+.coverage*
 htmlcov/
 
 # Generated research artifacts
@@ -13,6 +13,8 @@ outputs/*
 !outputs/.gitkeep
 reports/*
 !reports/.gitkeep
+logs/
+plans/
 runs/
 wandb/
 *.pt
@@ -22,3 +24,7 @@ wandb/
 *.log
 *.mp4
 
+# Local/ad hoc run helpers
+scripts/run_full_suite_*.sh
+scripts/_recover_failed_phases.sh
+AGENTS 2.md
