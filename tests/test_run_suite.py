@@ -7,6 +7,7 @@ import pytest
 
 from jepa_robotics.cli.run_suite import (
     SuiteChild,
+    _expand_phase_presets,
     _outputs_complete,
     _phase_command,
     _phase_config_path,
@@ -38,6 +39,15 @@ def test_phase_config_resolution_and_command_branches() -> None:
         assert required
     with pytest.raises(ValueError):
         _phase_command("unsupported", 0, Path("config.yaml"), Path("out"))
+
+
+def test_stage1_fetch_reach_preset_expands_to_reach_pipeline() -> None:
+    assert _expand_phase_presets(["stage1_fetch_reach"]) == [
+        "phase1_fetch_reach",
+        "state_jepa",
+        "jepa_sac",
+        "jepa_mpc",
+    ]
 
 
 def test_outputs_complete_and_run_child_status(tmp_path: Path) -> None:

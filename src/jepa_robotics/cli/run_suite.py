@@ -17,6 +17,19 @@ from jepa_robotics.config.schema import BenchmarkConfig
 from jepa_robotics.utils.provenance import platform_metadata
 from jepa_robotics.utils.serialization import write_json
 
+PHASE_DEPENDENCIES: dict[str, tuple[str, ...]] = {
+    "jepa_sac": ("state_jepa",),
+}
+
+PHASE_PRESETS: dict[str, tuple[str, ...]] = {
+    "stage1_fetch_reach": (
+        "phase1_fetch_reach",
+        "state_jepa",
+        "jepa_sac",
+        "jepa_mpc",
+    ),
+}
+
 
 @dataclass(frozen=True)
 class SuiteChild:
@@ -41,6 +54,8 @@ def run(
     generate_report: bool = True,
 ) -> Path:
     started = time.time()
+    requested_phases = list(phases)
+    phases = _expand_phase_presets(phases)
     resolved_seeds = seeds or [0]
     suite_root = Path(output_dir) if output_dir is not None else Path("outputs") / f"{mode}_suite"
     suite_root.mkdir(parents=True, exist_ok=True)
@@ -54,6 +69,7 @@ def run(
     metadata: dict[str, Any] = {
         "command": shlex.join(command or sys.argv),
         "mode": mode,
+        "requested_phases": requested_phases,
         "phases": phases,
         "seeds": resolved_seeds,
         "max_parallel": max_parallel,
@@ -72,11 +88,32 @@ def run(
             statuses.append(status)
         else:
             runnable.append(child)
+    waves = _topological_waves(runnable, phases)
     workers = max(1, max_parallel)
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [executor.submit(_run_child, child) for child in runnable]
-        for future in as_completed(futures):
-            statuses.append(future.result())
+    failed_phase_seeds: set[tuple[str, int]] = set()
+    for wave in waves:
+        wave_runnable = [
+            child for child in wave if not _has_failed_dependency(child, failed_phase_seeds)
+        ]
+        for child in wave:
+            if child in wave_runnable:
+                continue
+            status = _child_status(
+                child,
+                "skipped_dependency_failed",
+                returncode=0,
+                elapsed_seconds=0.0,
+                stderr="Upstream phase failed.",
+            )
+            write_json(child.status_path, status)
+            statuses.append(status)
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = [executor.submit(_run_child, child) for child in wave_runnable]
+            for future in as_completed(futures):
+                result = future.result()
+                statuses.append(result)
+                if result["status"] == "failed":
+                    failed_phase_seeds.add((result["phase"], result["seed"]))
     metadata["end_time"] = time.time()
     metadata["elapsed_seconds"] = metadata["end_time"] - started
     metadata["children"] = sorted(statuses, key=lambda item: (item["phase"], item["seed"]))
@@ -136,6 +173,19 @@ def _phase_config_path(phase: str, mode: str) -> Path:
         if candidate.exists():
             return candidate
     raise FileNotFoundError(f"No config found for phase {phase!r} in mode {mode!r}.")
+
+
+def _expand_phase_presets(phases: list[str]) -> list[str]:
+    expanded: list[str] = []
+    for phase in phases:
+        preset = PHASE_PRESETS.get(phase)
+        if preset is None:
+            expanded.append(phase)
+            continue
+        for preset_phase in preset:
+            if preset_phase not in expanded:
+                expanded.append(preset_phase)
+    return expanded
 
 
 def _phase_command(
@@ -245,6 +295,35 @@ def _train_rl_command(config_path: Path, method: str, seed: int) -> list[str]:
 
 def _outputs_complete(paths: list[Path]) -> bool:
     return bool(paths) and all(path.exists() for path in paths)
+
+
+def _topological_waves(children: list[SuiteChild], phases: list[str]) -> list[list[SuiteChild]]:
+    selected = set(phases)
+    remaining = list(children)
+    completed_phase_seeds: set[tuple[str, int]] = set()
+    waves: list[list[SuiteChild]] = []
+    while remaining:
+        ready: list[SuiteChild] = []
+        deferred: list[SuiteChild] = []
+        for child in remaining:
+            deps = PHASE_DEPENDENCIES.get(child.phase, ())
+            active_deps = [dep for dep in deps if dep in selected]
+            if all((dep, child.seed) in completed_phase_seeds for dep in active_deps):
+                ready.append(child)
+            else:
+                deferred.append(child)
+        if not ready:
+            ready = deferred
+            deferred = []
+        waves.append(ready)
+        for child in ready:
+            completed_phase_seeds.add((child.phase, child.seed))
+        remaining = deferred
+    return waves
+
+
+def _has_failed_dependency(child: SuiteChild, failed: set[tuple[str, int]]) -> bool:
+    return any((dep, child.seed) in failed for dep in PHASE_DEPENDENCIES.get(child.phase, ()))
 
 
 def _run_child(child: SuiteChild) -> dict[str, Any]:
