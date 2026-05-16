@@ -17,6 +17,7 @@ from jepa_robotics.data.trajectory_dataset import TrajectoryWindowDataset
 from jepa_robotics.envs.make_env import make_env
 from jepa_robotics.models.jepa import StateJEPA
 from jepa_robotics.planning.latent_mpc import LatentMPC
+from jepa_robotics.planning.scoring import make_goal_state_bank
 from jepa_robotics.training.jepa_trainer import train_jepa_model
 from jepa_robotics.utils.device import get_torch_device
 
@@ -45,7 +46,10 @@ def run(
 
             collect_dataset(config, seed=seed, output_dir=dataset_path.parent)
         train_jepa_model(config, dataset_path=dataset_path, seed=seed, output_dir=jepa_dir)
-    model = _load_model(config, dataset_path, jepa_dir)
+    dataset_windows = TrajectoryWindowDataset.from_npz(
+        dataset_path, horizon=config.jepa.max_horizon
+    )
+    model = _load_model(config, dataset_windows, jepa_dir)
     env = make_env(config.env.id, seed=seed, max_episode_steps=config.env.max_episode_steps)
     device = get_torch_device(config.device.preferred)
     action_space = env.action_space
@@ -63,6 +67,10 @@ def run(
         iterations=config.mpc.iterations,
         lambda_action=config.mpc.lambda_action,
         seed=seed,
+        goal_bank=make_goal_state_bank(
+            dataset_windows.arrays.observations,
+            dataset_windows.arrays.achieved_goals,
+        ),
     )
     rows, diagnostics = _evaluate_mpc(env, controller, config, seed)
     summary = _mpc_summary(diagnostics)
@@ -76,8 +84,9 @@ def run(
     return out
 
 
-def _load_model(config: BenchmarkConfig, dataset_path: Path, jepa_dir: Path) -> StateJEPA:
-    dataset = TrajectoryWindowDataset.from_npz(dataset_path, horizon=config.jepa.max_horizon)
+def _load_model(
+    config: BenchmarkConfig, dataset: TrajectoryWindowDataset, jepa_dir: Path
+) -> StateJEPA:
     device = get_torch_device(config.device.preferred)
     model = StateJEPA(
         input_dim=dataset.input_dim,
@@ -99,11 +108,11 @@ def _evaluate_mpc(
     controller: LatentMPC,
     config: BenchmarkConfig,
     seed: int,
-) -> tuple[list[dict[str, float | int | str]], list[dict[str, float | int]]]:
+) -> tuple[list[dict[str, float | int | str]], list[dict[str, float | int | str]]]:
     rewards: list[float] = []
     successes: list[float] = []
     lengths: list[int] = []
-    diagnostics: list[dict[str, float | int]] = []
+    diagnostics: list[dict[str, float | int | str]] = []
     for episode in range(max(1, config.rl.n_eval_episodes)):
         obs, _ = env.reset(seed=seed + episode)
         total = 0.0
@@ -135,6 +144,10 @@ def _evaluate_mpc(
                     "predicted_latent_progress": (
                         -controller.last_diagnostics.latent_distance_to_goal
                     ),
+                    "goal_source": controller.last_diagnostics.goal_source,
+                    "nearest_dataset_goal_distance": (
+                        controller.last_diagnostics.nearest_goal_distance
+                    ),
                     "actual_goal_distance_before_step": goal_distance_before,
                     "actual_goal_distance_after_step": goal_distance_after,
                     "actual_goal_progress": goal_distance_before - goal_distance_after,
@@ -163,7 +176,7 @@ def _evaluate_mpc(
     return rows, diagnostics
 
 
-def _mpc_summary(diagnostics: list[dict[str, float | int]]) -> dict[str, float]:
+def _mpc_summary(diagnostics: list[dict[str, float | int | str]]) -> dict[str, float | str]:
     if not diagnostics:
         return {"predicted_actual_progress_correlation": float("nan")}
     frame = pd.DataFrame(diagnostics)
@@ -178,6 +191,8 @@ def _mpc_summary(diagnostics: list[dict[str, float | int]]) -> dict[str, float]:
         "mean_action_norm": float(frame["chosen_action_norm"].mean()),
         "mean_sequence_smoothness": float(frame["selected_sequence_smoothness"].mean()),
         "mean_planning_time_ms": float(frame["planning_time_ms"].mean()),
+        "mean_nearest_dataset_goal_distance": float(frame["nearest_dataset_goal_distance"].mean()),
+        "goal_source": str(frame["goal_source"].mode().iloc[0]),
     }
 
 
