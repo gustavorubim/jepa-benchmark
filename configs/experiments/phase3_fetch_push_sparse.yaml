@@ -1,7 +1,7 @@
 experiment:
   name: phase3_fetch_push_sparse
   output_dir: outputs/phase3_fetch_push_sparse
-  seeds: [0, 1, 2, 3, 4]
+  seeds: [0]
 env:
   id: FetchPush-v3
   obs_mode: state

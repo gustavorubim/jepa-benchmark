@@ -31,7 +31,7 @@ class SuiteChild:
 
 def run(
     phases: list[str],
-    seeds: list[int],
+    seeds: list[int] | None = None,
     mode: str = "iteration",
     max_parallel: int = 1,
     smoke_test: bool = False,
@@ -40,6 +40,7 @@ def run(
     command: list[str] | None = None,
 ) -> Path:
     started = time.time()
+    resolved_seeds = seeds or [0]
     suite_root = Path(output_dir) if output_dir is not None else Path("outputs") / f"{mode}_suite"
     suite_root.mkdir(parents=True, exist_ok=True)
     status_dir = suite_root / "suite_status"
@@ -47,13 +48,13 @@ def run(
     children = [
         _build_child(phase, seed, mode, suite_root, status_dir, smoke_test)
         for phase in phases
-        for seed in seeds
+        for seed in resolved_seeds
     ]
     metadata: dict[str, Any] = {
         "command": shlex.join(command or sys.argv),
         "mode": mode,
         "phases": phases,
-        "seeds": seeds,
+        "seeds": resolved_seeds,
         "max_parallel": max_parallel,
         "smoke_test": smoke_test,
         "start_time": started,
@@ -273,7 +274,7 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="iteration", choices=["iteration", "confirm", "full"])
     parser.add_argument("--phases", nargs="+", required=True)
-    parser.add_argument("--seeds", nargs="+", type=int, required=True)
+    parser.add_argument("--seeds", nargs="+", type=int, default=[0])
     parser.add_argument("--max-parallel", type=int, default=1)
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--force", action="store_true")

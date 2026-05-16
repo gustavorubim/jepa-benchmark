@@ -20,7 +20,6 @@ These commands run on CPU without CUDA/MPS and use tiny budgets:
 uv run python -m jepa_robotics.cli.run_suite \
   --mode iteration \
   --phases phase1_fetch_reach \
-  --seeds 0 1 \
   --max-parallel 2 \
   --smoke-test
 
@@ -51,11 +50,12 @@ The suite driver launches one subprocess per `(phase, seed)` pair, caps concurre
 uv run python -m jepa_robotics.cli.run_suite \
   --mode iteration \
   --phases phase1_fetch_reach phase3_fetch_push_sparse \
-  --seeds 0 \
   --max-parallel 2
 ```
 
-Use `--force` to rerun completed outputs. Status and provenance files are written under:
+Suites default to `--seeds 0`. Pass explicit seeds, for example `--seeds 0 1 2`,
+when you want confirm or publishable multi-seed evidence. Use `--force` to rerun completed
+outputs. Status and provenance files are written under:
 
 ```text
 outputs/<mode>_suite/

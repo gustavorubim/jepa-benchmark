@@ -11,6 +11,7 @@ from jepa_robotics.cli.run_suite import (
     _phase_command,
     _phase_config_path,
     _run_child,
+    run,
 )
 
 
@@ -60,3 +61,15 @@ def test_outputs_complete_and_run_child_status(tmp_path: Path) -> None:
     status = _run_child(child)
     assert status["status"] == "completed"
     assert (tmp_path / "status.json").exists()
+
+
+def test_run_suite_defaults_to_single_seed(tmp_path: Path) -> None:
+    suite = run(
+        phases=["phase1_fetch_reach"],
+        seeds=None,
+        smoke_test=True,
+        output_dir=tmp_path / "suite",
+        command=["test"],
+    )
+    status_files = sorted((suite / "suite_status").glob("*.json"))
+    assert [path.name for path in status_files] == ["phase1_fetch_reach_seed_0.json"]

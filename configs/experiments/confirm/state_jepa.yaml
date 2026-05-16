@@ -1,7 +1,7 @@
 experiment:
   name: state_jepa_confirm
   output_dir: outputs/state_jepa_confirm
-  seeds: [0, 1, 2]
+  seeds: [0]
 env:
   id: FetchReachDense-v3
   obs_mode: state

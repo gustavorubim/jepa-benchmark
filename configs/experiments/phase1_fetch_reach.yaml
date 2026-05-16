@@ -1,7 +1,7 @@
 experiment:
   name: phase1_fetch_reach
   output_dir: outputs/phase1_fetch_reach
-  seeds: [0, 1, 2, 3, 4]
+  seeds: [0]
 env:
   id: FetchReachDense-v3
   obs_mode: state
