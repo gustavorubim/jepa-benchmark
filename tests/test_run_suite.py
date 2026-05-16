@@ -24,6 +24,7 @@ def test_phase_config_resolution_and_command_branches() -> None:
     phases = [
         "phase1_fetch_reach",
         "phase2_fetch_push_dense",
+        "phase3_fetch_push_dense",
         "phase3_fetch_push_sparse",
         "phase3_fetch_push_sparse_tqc",
         "state_jepa",

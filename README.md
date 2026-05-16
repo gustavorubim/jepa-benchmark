@@ -124,9 +124,10 @@ sequenceDiagram
 
 ### RL Baseline Pipeline
 
-Dense Fetch tasks use SAC. Sparse Fetch tasks use SAC or TQC with HER replay. Training uses SB3
-vector environments, periodic cheap evaluations, a final full evaluation, optional early stopping,
-and timing metrics.
+Dense Fetch tasks use SAC. The primary contact task is `FetchPushDense-v4`, which gives a shaped
+object-control signal. Sparse Push remains a stress test using SAC or TQC with HER replay. Training
+uses SB3 vector environments, periodic cheap evaluations, a final full evaluation, optional early
+stopping, and timing metrics.
 
 ```mermaid
 flowchart TD
@@ -343,7 +344,7 @@ The suite driver launches one subprocess per `(phase, seed)` pair, caps concurre
 ```bash
 uv run python -m jepa_robotics.cli.run_suite \
   --mode iteration \
-  --phases phase1_fetch_reach phase3_fetch_push_sparse \
+  --phases phase1_fetch_reach phase3_fetch_push_dense \
   --max-parallel 2
 ```
 
@@ -371,8 +372,7 @@ evidence, and full configs are resumable multi-seed runs for reporting.
 
 ## RL Baselines
 
-Dense Fetch tasks use SAC. Sparse goal-conditioned Fetch tasks use SAC with HER replay, with an
-optional TQC+HER comparison phase using `sb3-contrib`:
+Dense Fetch tasks use SAC. The default contact-control comparison is dense Push:
 
 ```bash
 uv run python -m jepa_robotics.cli.train_rl \
@@ -380,6 +380,16 @@ uv run python -m jepa_robotics.cli.train_rl \
   --method sac \
   --seed 0
 
+uv run python -m jepa_robotics.cli.train_rl \
+  --config configs/experiments/phase3_fetch_push_dense.yaml \
+  --method sac \
+  --seed 0
+```
+
+Sparse Push is retained as a stress test, not the primary Phase 3 benchmark. It uses HER replay,
+with an optional TQC+HER comparison phase using `sb3-contrib`:
+
+```bash
 uv run python -m jepa_robotics.cli.train_rl \
   --config configs/experiments/phase3_fetch_push_sparse.yaml \
   --method sac_her \
@@ -417,7 +427,7 @@ rl:
   skip_existing: true
 ```
 
-Sparse FetchPush configs use RL Zoo-style HER controls:
+Sparse FetchPush stress configs use RL Zoo-style HER controls:
 
 ```yaml
 rl:
@@ -474,7 +484,7 @@ terminal, or truncation boundaries.
 ```bash
 uv run python -m jepa_robotics.cli.train_jepa \
   --config configs/jepa/state_jepa.yaml \
-  --dataset outputs/phase1_fetch_reach/datasets/FetchReachDense-v3/mixture/seed_0/trajectories.npz \
+  --dataset outputs/phase1_fetch_reach/datasets/FetchReachDense-v4/mixture/seed_0/trajectories.npz \
   --seed 0
 ```
 
@@ -514,7 +524,7 @@ AMP and compile are off by default.
 ```bash
 uv run python -m jepa_robotics.cli.train_autoencoder \
   --config configs/jepa/autoencoder.yaml \
-  --dataset outputs/state_jepa/datasets/FetchReachDense-v3/random/seed_0/trajectories.npz \
+  --dataset outputs/state_jepa/datasets/FetchReachDense-v4/random/seed_0/trajectories.npz \
   --seed 0
 ```
 
@@ -535,7 +545,7 @@ config_resolved.yaml
 uv run python -m jepa_robotics.cli.evaluate \
   --config configs/jepa/jepa_mpc.yaml \
   --checkpoint outputs/state_jepa/jepa/state_jepa/seed_0/encoder.pt \
-  --dataset outputs/state_jepa/datasets/FetchReachDense-v3/random/seed_0/trajectories.npz \
+  --dataset outputs/state_jepa/datasets/FetchReachDense-v4/random/seed_0/trajectories.npz \
   --seed 0
 ```
 
@@ -666,7 +676,9 @@ runtime and quality claims.
 
 MuJoCo and Gymnasium Robotics: run `uv sync` and confirm the Fetch env can be imported with `uv run python -c "import gymnasium_robotics"`.
 
-Current Gymnasium Robotics releases deprecate the spec-era Fetch `-v3` IDs in favor of `-v4`. The environment factory accepts the repo configs as written and resolves Fetch `-v3` IDs to installed `-v4` environments at runtime.
+Current Gymnasium Robotics releases use Fetch `-v4` IDs. Repo configs use explicit `-v4`
+environment names; the environment factory still resolves older Fetch `-v3` IDs to installed
+`-v4` environments for backward compatibility.
 
 CUDA: use `device.preferred: cuda` only when `torch.cuda.is_available()` is true.
 

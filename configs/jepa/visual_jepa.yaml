@@ -3,7 +3,7 @@ experiment:
   output_dir: outputs/visual_jepa
   seeds: [0]
 env:
-  id: FetchReachDense-v3
+  id: FetchReachDense-v4
   obs_mode: visual
   image_size: 84
   max_episode_steps: 50

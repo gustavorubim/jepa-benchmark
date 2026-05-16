@@ -1,20 +1,15 @@
 experiment:
-  name: phase3_fetch_push_sparse_confirm
-  output_dir: outputs/phase3_fetch_push_sparse_confirm
+  name: phase3_fetch_push_dense
+  output_dir: outputs/phase3_fetch_push_dense
   seeds: [0]
 env:
-  id: FetchPush-v4
+  id: FetchPushDense-v4
   obs_mode: state
   max_episode_steps: 50
 rl:
   algorithm: SAC
   policy: MultiInputPolicy
-  replay_buffer_class: HerReplayBuffer
-  replay_buffer_kwargs:
-    n_sampled_goal: 4
-    goal_selection_strategy: future
-    copy_info_dict: false
-  total_timesteps: 1000000
+  total_timesteps: 500000
   eval_freq: 10000
   train_eval_episodes: 20
   final_eval_episodes: 20
@@ -23,14 +18,6 @@ rl:
   vec_env_type: dummy
   early_stop_success: 0.85
   early_stop_patience: 3
-  learning_rate: 0.001
-  batch_size: 512
-  gamma: 0.98
-  tau: 0.005
-  learning_starts: 5000
-  policy_net_arch: [512, 512, 512]
-  n_critics: 2
-  time_feature_wrapper: true
 dataset:
   source: mixture
   num_episodes: 1000
@@ -40,6 +27,13 @@ jepa:
   latent_dim: 128
   hidden_dims: [256, 256]
   prediction_horizons: [1, 2, 4, 8]
-  epochs: 60
+  batch_size: 512
+  epochs: 100
+mpc:
+  planner: cem
+  horizon: 8
+  num_candidates: 512
+  num_elites: 64
+  iterations: 4
 device:
   preferred: auto

@@ -15,7 +15,7 @@ class ExperimentSection(BaseModel):
 
 
 class EnvSection(BaseModel):
-    id: str = "FetchReachDense-v3"
+    id: str = "FetchReachDense-v4"
     obs_mode: Literal["state", "visual"] = "state"
     reward_mode: str | None = None
     render_mode: str | None = None

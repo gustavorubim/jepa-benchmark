@@ -138,7 +138,12 @@ def _phase_command(
     config_path: Path,
     output_dir: Path,
 ) -> tuple[list[str], list[Path]]:
-    if phase in {"phase0_reacher_debug", "phase1_fetch_reach", "phase2_fetch_push_dense"}:
+    if phase in {
+        "phase0_reacher_debug",
+        "phase1_fetch_reach",
+        "phase2_fetch_push_dense",
+        "phase3_fetch_push_dense",
+    }:
         method = "sac"
         return _train_rl_command(config_path, method, seed), [
             output_dir / "rl" / method / f"seed_{seed}" / "model.zip",

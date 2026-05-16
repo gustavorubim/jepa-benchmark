@@ -1,4 +1,4 @@
-id: FetchPush-v3
+id: FetchPush-v4
 obs_mode: state
 reward_mode: sparse
 max_episode_steps: 50

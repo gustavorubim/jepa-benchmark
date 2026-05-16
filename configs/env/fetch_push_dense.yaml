@@ -1,4 +1,4 @@
-id: FetchPushDense-v3
+id: FetchPushDense-v4
 obs_mode: state
 reward_mode: dense
 max_episode_steps: 50

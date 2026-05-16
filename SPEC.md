@@ -12,10 +12,11 @@ Build a modular research codebase that compares:
 
 The core benchmark is robotic goal-reaching/pushing in existing simulation environments, with primary focus on:
 
-- `FetchReachDense-v3` as the sanity-check environment.
-- `FetchPushDense-v3` as the main dense-reward experiment.
-- `FetchPush-v3` as the main sparse-reward experiment.
-- Optional later extension: `FetchPickAndPlaceDense-v3`.
+- `FetchReachDense-v4` as the sanity-check environment.
+- `FetchPushDense-v4` as the main dense-reward experiment.
+- `FetchPushDense-v4` as the primary contact-control Phase 3 target.
+- `FetchPush-v4` as a sparse-reward stress test, not the primary benchmark gate.
+- Optional later extension: `FetchPickAndPlaceDense-v4`.
 
 The project should answer:
 
@@ -170,6 +171,7 @@ jepa-robotics/
       phase0_reacher_debug.yaml
       phase1_fetch_reach.yaml
       phase2_fetch_push_dense.yaml
+      phase3_fetch_push_dense.yaml
       phase3_fetch_push_sparse.yaml
       phase4_generalization.yaml
 
@@ -326,9 +328,9 @@ Weights & Biases should be optional. The code must work without it.
 The code should support at least these environments:
 
 ```text
-FetchReachDense-v3
-FetchPushDense-v3
-FetchPush-v3
+FetchReachDense-v4
+FetchPushDense-v4
+FetchPush-v4
 ```
 
 The environment factory should accept:
@@ -397,12 +399,12 @@ Use the native rewards for primary environment evaluation.
 
 Dense environments:
 
-- FetchReachDense-v3
-- FetchPushDense-v3
+- FetchReachDense-v4
+- FetchPushDense-v4
 
 Sparse environments:
 
-- FetchPush-v3
+- FetchPush-v4
 
 Do not redefine the official evaluation reward unless the experiment explicitly says so.
 
@@ -480,7 +482,7 @@ The coding agent should implement the code to measure these thresholds, not hard
 
 Recommended experimental goals:
 
-#### Phase 1: FetchReachDense-v3
+#### Phase 1: FetchReachDense-v4
 
 Baseline SAC should reach:
 
@@ -498,7 +500,7 @@ mean_success_rate >= 0.70
 
 after training on a collected dataset.
 
-#### Phase 2: FetchPushDense-v3
+#### Phase 2: FetchPushDense-v4
 
 Baseline SAC should target:
 
@@ -518,7 +520,26 @@ Primary comparison:
 environment steps required to reach mean_success_rate >= 0.50
 ```
 
-#### Phase 3: FetchPush-v3 sparse
+#### Phase 3: FetchPushDense-v4 primary contact-control task
+
+Dense FetchPush is the default Phase 3 benchmark because it preserves object contact and pushing
+dynamics while providing enough shaped signal for reliable single-machine comparisons.
+
+SAC should target:
+
+```text
+mean_success_rate >= 0.70
+```
+
+Primary comparison:
+
+```text
+area under success-rate curve
+steps to reach 0.25, 0.50, 0.75 success
+final success after fixed budget
+```
+
+#### Sparse stress test: FetchPush-v4
 
 SAC+HER should be the traditional baseline.
 
@@ -1034,7 +1055,7 @@ uv run python -m jepa_robotics.cli.plot \
 
 Purpose: debug model training and plotting quickly.
 
-### Phase 1: FetchReachDense-v3
+### Phase 1: FetchReachDense-v4
 
 Purpose: prove the stack works.
 
@@ -1047,7 +1068,7 @@ JEPA-pretrained SAC
 Autoencoder-MPC
 ```
 
-### Phase 2: FetchPushDense-v3
+### Phase 2: FetchPushDense-v4
 
 Purpose: main dense-reward result.
 
@@ -1060,7 +1081,20 @@ Autoencoder-pretrained SAC
 JEPA-MPC
 ```
 
-### Phase 3: FetchPush-v3 sparse
+### Phase 3: FetchPushDense-v4 primary contact control
+
+Purpose: main object-contact result with dense reward.
+
+Methods:
+
+```text
+SAC
+JEPA-pretrained SAC
+Autoencoder-pretrained SAC
+JEPA-MPC
+```
+
+### Sparse stress test: FetchPush-v4
 
 Purpose: compare against HER.
 
@@ -1374,7 +1408,7 @@ experiment:
   seeds: [0, 1, 2, 3, 4]
 
 env:
-  id: FetchPushDense-v3
+  id: FetchPushDense-v4
   obs_mode: state
   max_episode_steps: 50
 
@@ -1696,7 +1730,7 @@ Mitigation:
 
 Mitigation:
 
-- Start with FetchReachDense-v3.
+- Start with FetchReachDense-v4.
 - Use dense rewards and state observations first.
 - Test one-step prediction before multi-step rollout.
 - Add CEM after random shooting works.

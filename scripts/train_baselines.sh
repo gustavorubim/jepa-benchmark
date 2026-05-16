@@ -7,6 +7,6 @@ SEEDS="${SEEDS:-0}"
 
 uv run python -m jepa_robotics.cli.run_suite \
   --mode "${MODE}" \
-  --phases phase1_fetch_reach phase3_fetch_push_sparse \
+  --phases phase1_fetch_reach phase3_fetch_push_dense \
   --seeds ${SEEDS} \
   --max-parallel "${MAX_PARALLEL}"

@@ -3,7 +3,7 @@ experiment:
   output_dir: outputs/phase2_fetch_push_dense
   seeds: [0]
 env:
-  id: FetchPushDense-v3
+  id: FetchPushDense-v4
   obs_mode: state
   max_episode_steps: 50
 rl:

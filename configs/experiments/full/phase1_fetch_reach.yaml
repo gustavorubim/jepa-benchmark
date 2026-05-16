@@ -3,7 +3,7 @@ experiment:
   output_dir: outputs/phase1_fetch_reach_full
   seeds: [0]
 env:
-  id: FetchReachDense-v3
+  id: FetchReachDense-v4
   obs_mode: state
   max_episode_steps: 50
 rl:

@@ -15,7 +15,7 @@ def test_load_config_and_smoke_copy(tmp_path: Path) -> None:
         yaml.safe_dump(
             {
                 "experiment": {"name": "x", "output_dir": str(tmp_path / "out"), "seeds": [7]},
-                "env": {"id": "FetchReachDense-v3"},
+                "env": {"id": "FetchReachDense-v4"},
             }
         ),
         encoding="utf-8",
@@ -35,7 +35,7 @@ def test_load_config_and_smoke_copy(tmp_path: Path) -> None:
 def test_dump_config_roundtrip(tmp_path: Path) -> None:
     path = tmp_path / "resolved.yaml"
     dump_config(BenchmarkConfig(), path)
-    assert load_config(path).env.id == "FetchReachDense-v3"
+    assert load_config(path).env.id == "FetchReachDense-v4"
 
 
 def test_invalid_yaml_mapping(tmp_path: Path) -> None:
