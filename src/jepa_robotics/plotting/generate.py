@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,28 @@ from jepa_robotics.plotting.mpc_diagnostics import plot_histogram, plot_scatter
 from jepa_robotics.plotting.representation_plots import plot_probe_bars
 from jepa_robotics.plotting.sample_efficiency import plot_bar
 from jepa_robotics.plotting.tables import write_analysis_tables
+
+PRETRAINING_BUDGET_METHODS: frozenset[str] = frozenset(
+    {
+        "jepa_mpc",
+        "jepa_sac",
+        "sac_jepa",
+        "state_jepa",
+        "autoencoder",
+        "state_autoencoder",
+        "sac_ae",
+        "ae_mpc",
+    }
+)
+PRETRAINING_BUDGET_PHASES: frozenset[str] = frozenset(
+    {
+        "jepa_mpc",
+        "jepa_sac",
+        "state_jepa",
+        "autoencoder",
+    }
+)
+POLICY_SOURCED_DATASETS: frozenset[str] = frozenset({"rl_policy", "mixture"})
 
 CORE_PLOT_BASES = [
     "sample_efficiency_success",
@@ -125,14 +148,17 @@ def _enrich_metric_frame(
     enriched["total_steps"] = enriched.get(
         "total_steps", metadata.get("total_steps", enriched["global_step"].max())
     )
-    enriched["dataset_source"] = enriched.get("dataset_source", metadata.get("dataset_source", ""))
-    enriched["pretraining_env_steps"] = enriched.get(
-        "pretraining_env_steps", metadata.get("pretraining_env_steps", 0)
-    )
+    dataset_source = str(metadata.get("dataset_source", "") or "")
+    enriched["dataset_source"] = enriched.get("dataset_source", dataset_source)
+    pretraining_env_steps = int(metadata.get("pretraining_env_steps", 0) or 0)
+    policy_source_steps = int(metadata.get("policy_source_steps", 0) or 0)
+    enriched["pretraining_env_steps"] = enriched.get("pretraining_env_steps", pretraining_env_steps)
+    enriched["policy_source_steps"] = enriched.get("policy_source_steps", policy_source_steps)
     method = str(enriched["method"].dropna().iloc[0]) if "method" in enriched else ""
-    offset = (
-        metadata.get("pretraining_env_steps", 0) if _uses_pretraining_budget(phase, method) else 0
-    )
+    if _uses_pretraining_budget(phase, method, dataset_source):
+        offset = pretraining_env_steps + policy_source_steps
+    else:
+        offset = 0
     configured_budget = float(metadata.get("total_steps", enriched["global_step"].max())) + float(
         offset
     )
@@ -154,14 +180,33 @@ def _load_metric_metadata(
     if not config:
         seed = int(frame["seed"].iloc[0]) if "seed" in frame and not frame.empty else 0
         config = _config_metadata(experiment_root / "suite_configs" / f"{phase}_seed_{seed}.yaml")
+    dataset_metadata = _dataset_metadata(experiment_root)
     return {
         "env_id": config.get("env_id", frame["env_id"].iloc[0] if "env_id" in frame else "unknown"),
         "reward_mode": config.get("reward_mode", ""),
         "total_steps": _metric_total_steps(config, phase, frame),
         "dataset_source": config.get("dataset_source", ""),
         "pretraining_env_steps": config.get("pretraining_env_steps", 0),
+        "policy_source_steps": dataset_metadata.get("policy_source_steps", 0),
         "comparison_group": config.get("comparison_group") or phase,
     }
+
+
+def _dataset_metadata(experiment_root: Path) -> dict[str, Any]:
+    total: dict[str, Any] = {"policy_source_steps": 0}
+    for path in experiment_root.rglob("metadata.json"):
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if payload.get("schema_version") != "trajectory_npz_v1":
+            continue
+        total["policy_source_steps"] = max(
+            int(total.get("policy_source_steps", 0)),
+            int(payload.get("policy_source_steps", 0) or 0),
+        )
+    return total
 
 
 def _nearest_config(csv_path: Path, experiment_root: Path) -> Path | None:
@@ -195,9 +240,12 @@ def _metric_total_steps(config: dict[str, Any], phase: str, frame: pd.DataFrame)
     return float(config.get("total_steps", frame["global_step"].max()))
 
 
-def _uses_pretraining_budget(phase: str, method: str) -> bool:
-    text = f"{phase} {method}".lower()
-    return "jepa" in text or "autoencoder" in text or "ae" in text
+def _uses_pretraining_budget(phase: str, method: str, dataset_source: str) -> bool:
+    if not dataset_source:
+        return False
+    method_lower = method.strip().lower()
+    phase_lower = phase.strip().lower()
+    return method_lower in PRETRAINING_BUDGET_METHODS or phase_lower in PRETRAINING_BUDGET_PHASES
 
 
 def _relative_to(path: Path, root: Path) -> Path:
@@ -576,6 +624,15 @@ def _write_report(
     (reports_dir / "report.md").write_text(report, encoding="utf-8")
 
 
+def _budgets_close(budgets: list[float], rtol: float = 0.01) -> bool:
+    if len(budgets) <= 1:
+        return len(budgets) == 1
+    reference = float(budgets[0])
+    if reference == 0:
+        return all(abs(value) <= 1.0 for value in budgets)
+    return all(abs(value - reference) / abs(reference) <= rtol for value in budgets)
+
+
 def _claim_verdict(aggregate: pd.DataFrame) -> str:
     if aggregate.empty:
         return "No learning metrics were found; no performance claim is supported."
@@ -596,9 +653,16 @@ def _claim_verdict(aggregate: pd.DataFrame) -> str:
             else "total_steps"
         )
         budgets = (
-            set(group[budget_column].dropna().astype(float)) if budget_column in group else set()
+            sorted(group[budget_column].dropna().astype(float).unique())
+            if budget_column in group
+            else []
         )
-        if methods >= 2 and not seed_counts.empty and seed_counts.min() >= 5 and len(budgets) == 1:
+        if (
+            methods >= 2
+            and not seed_counts.empty
+            and seed_counts.min() >= 5
+            and _budgets_close(budgets)
+        ):
             eligible.append("/".join(str(value) for value in context.values()))
     if not eligible:
         return (

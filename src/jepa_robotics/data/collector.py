@@ -36,6 +36,7 @@ def collect_dataset(
     else:
         buffer = _collect_single_env(config, seed, policy_path)
     arrays = _sort_by_episode_timestep(buffer.to_arrays())
+    policy_source_steps = _policy_source_steps(policy_path)
     save_trajectories_npz(
         path,
         arrays,
@@ -49,10 +50,35 @@ def collect_dataset(
             "git_commit": git_commit(Path.cwd()),
             "collector_n_envs": config.dataset.n_envs,
             "collector_vec_env_type": config.dataset.vec_env_type,
+            "policy_source_path": str(policy_path) if policy_path else "",
+            "policy_source_steps": policy_source_steps,
         },
     )
     dump_config(config, out / "config_resolved.yaml")
     return path
+
+
+def _policy_source_steps(policy_path: str | Path | None) -> int:
+    if policy_path is None:
+        return 0
+    candidate = Path(policy_path)
+    if not candidate.exists():
+        return 0
+    config_path = candidate.parent / "config_resolved.yaml"
+    if not config_path.exists():
+        return 0
+    try:
+        source_config = BenchmarkConfig.model_validate(_safe_yaml_load(config_path))
+    except (OSError, ValueError):
+        return 0
+    return int(source_config.rl.total_timesteps)
+
+
+def _safe_yaml_load(path: Path) -> Any:
+    import yaml
+
+    with path.open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
 
 
 def _sort_by_episode_timestep(arrays: TrajectoryArrays) -> TrajectoryArrays:

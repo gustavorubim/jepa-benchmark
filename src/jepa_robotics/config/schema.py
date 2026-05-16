@@ -116,6 +116,7 @@ class MPCSection(BaseModel):
     lambda_action: float = 0.001
     action_low: list[float] = Field(default_factory=lambda: [-1.0, -1.0, -1.0, -1.0])
     action_high: list[float] = Field(default_factory=lambda: [1.0, 1.0, 1.0, 1.0])
+    dataset_budgets: list[int] | None = None
 
 
 class AutoencoderSection(BaseModel):

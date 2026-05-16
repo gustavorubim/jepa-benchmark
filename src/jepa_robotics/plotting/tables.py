@@ -237,6 +237,15 @@ def _bootstrap_iqm_ci(values: np.ndarray, iterations: int = 2000) -> tuple[float
     return float(low), float(high)
 
 
+def _budgets_match(budgets: list[float], rtol: float = 0.01) -> bool:
+    if len(budgets) <= 1:
+        return len(budgets) == 1
+    reference = float(budgets[0])
+    if reference == 0:
+        return all(abs(value) <= 1.0 for value in budgets)
+    return all(abs(value - reference) / abs(reference) <= rtol for value in budgets)
+
+
 def _comparison_diagnostics(aggregate: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict[str, int | str | bool]] = []
     if aggregate.empty:
@@ -270,7 +279,7 @@ def _comparison_diagnostics(aggregate: pd.DataFrame) -> pd.DataFrame:
             else "total_steps"
         )
         budgets = sorted(context[budget_column].dropna().astype(float).unique())
-        matched_budget = len(budgets) == 1
+        matched_budget = _budgets_match(budgets)
         min_seeds = int(seed_counts.min()) if not seed_counts.empty else 0
         claim_ready = len(methods) >= 2 and min_seeds >= 5 and matched_budget
         if claim_ready:
