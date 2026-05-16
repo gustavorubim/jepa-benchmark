@@ -1,0 +1,13 @@
+algorithm: SAC
+policy: MultiInputPolicy
+replay_buffer_class: HerReplayBuffer
+replay_buffer_kwargs:
+  n_sampled_goal: 4
+  goal_selection_strategy: future
+  copy_info_dict: true
+gamma: 0.98
+batch_size: 256
+learning_rate: 0.0003
+total_timesteps: 500000
+eval_freq: 10000
+n_eval_episodes: 20

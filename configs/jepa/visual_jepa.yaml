@@ -1,0 +1,18 @@
+experiment:
+  name: visual_jepa
+  output_dir: outputs/visual_jepa
+  seeds: [0, 1, 2, 3, 4]
+env:
+  id: FetchReachDense-v3
+  obs_mode: visual
+  image_size: 84
+  max_episode_steps: 50
+jepa:
+  latent_dim: 128
+  hidden_dims: [256, 256]
+  prediction_horizons: [1, 2, 4, 8]
+  batch_size: 256
+  epochs: 100
+  learning_rate: 0.0003
+device:
+  preferred: auto

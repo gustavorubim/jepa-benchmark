@@ -1,0 +1,5 @@
+id: FetchPushDense-v3
+obs_mode: state
+reward_mode: dense
+max_episode_steps: 50
+success_threshold: 0.05

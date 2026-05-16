@@ -1,0 +1,24 @@
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Generated research artifacts
+outputs/*
+!outputs/.gitkeep
+reports/*
+!reports/.gitkeep
+runs/
+wandb/
+*.pt
+*.pth
+*.zip
+*.pkl
+*.log
+*.mp4
+

@@ -1,0 +1,9 @@
+algorithm: TD3
+policy: MultiInputPolicy
+total_timesteps: 500000
+eval_freq: 10000
+n_eval_episodes: 20
+learning_rate: 0.0003
+batch_size: 256
+gamma: 0.98
+tau: 0.05

@@ -1,0 +1,28 @@
+experiment:
+  name: phase0_reacher_debug
+  output_dir: outputs/phase0_reacher_debug
+  seeds: [0]
+env:
+  id: FetchReachDense-v3
+  obs_mode: state
+  max_episode_steps: 50
+rl:
+  algorithm: SAC
+  total_timesteps: 1000
+  eval_freq: 250
+  n_eval_episodes: 2
+dataset:
+  source: random
+  num_episodes: 10
+jepa:
+  latent_dim: 32
+  hidden_dims: [64, 64]
+  prediction_horizons: [1, 2]
+  epochs: 2
+  batch_size: 16
+mpc:
+  planner: random
+  horizon: 2
+  num_candidates: 16
+device:
+  preferred: auto

@@ -1,0 +1,25 @@
+experiment:
+  name: state_jepa
+  output_dir: outputs/state_jepa
+  seeds: [0, 1, 2, 3, 4]
+env:
+  id: FetchReachDense-v3
+  obs_mode: state
+  max_episode_steps: 50
+dataset:
+  source: random
+  num_episodes: 1000
+  max_episode_steps: 50
+  save_format: npz
+jepa:
+  latent_dim: 128
+  hidden_dims: [256, 256]
+  prediction_horizons: [1, 2, 4, 8]
+  batch_size: 512
+  epochs: 100
+  learning_rate: 0.0003
+  ema_momentum: 0.996
+  lambda_var: 1.0
+  lambda_cov: 0.04
+device:
+  preferred: auto
