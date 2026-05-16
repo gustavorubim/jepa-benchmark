@@ -1,13 +1,13 @@
 experiment:
-  name: phase3_fetch_push_sparse_full
-  output_dir: outputs/phase3_fetch_push_sparse_full
+  name: phase3_fetch_push_sparse_tqc_full
+  output_dir: outputs/phase3_fetch_push_sparse_tqc_full
   seeds: [0]
 env:
   id: FetchPush-v3
   obs_mode: state
   max_episode_steps: 50
 rl:
-  algorithm: SAC
+  algorithm: TQC
   policy: MultiInputPolicy
   replay_buffer_class: HerReplayBuffer
   replay_buffer_kwargs:

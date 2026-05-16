@@ -109,36 +109,40 @@ def _train_sb3(
         reward_mode=config.env.reward_mode,
         max_episode_steps=config.env.max_episode_steps,
         monitor_dir=str(out),
+        time_feature_wrapper=config.rl.time_feature_wrapper,
     )
     algorithm = method.upper()
     sb3_algorithm = "SAC" if algorithm in {"SAC", "SAC_HER", "SAC_JEPA"} else algorithm
+    sb3_algorithm = "TQC" if algorithm in {"TQC", "TQC_HER"} else sb3_algorithm
     if sb3_algorithm == "SAC":
-        kwargs: dict[str, Any] = {
-            "policy": config.rl.policy,
-            "env": env,
-            "learning_rate": config.rl.learning_rate,
-            "buffer_size": config.rl.buffer_size,
-            "batch_size": config.rl.batch_size,
-            "gamma": config.rl.gamma,
-            "tau": config.rl.tau,
-            "learning_starts": config.rl.learning_starts,
-            "train_freq": config.rl.train_freq,
-            "gradient_steps": config.rl.gradient_steps,
-            "verbose": 0,
-            "seed": seed,
-        }
-        policy_kwargs = _policy_kwargs(
+        kwargs = _off_policy_kwargs(
             config=config,
+            env=env,
+            seed=seed,
             feature_extractor=feature_extractor,
             encoder_checkpoint=encoder_checkpoint,
             freeze_encoder=freeze_encoder,
         )
-        if policy_kwargs:
-            kwargs["policy_kwargs"] = policy_kwargs
-        if algorithm == "SAC_HER" or config.rl.replay_buffer_class == "HerReplayBuffer":
+        if _uses_her(algorithm, config):
             kwargs["replay_buffer_class"] = HerReplayBuffer
             kwargs["replay_buffer_kwargs"] = config.rl.replay_buffer_kwargs
         model: Any = SAC(**kwargs)
+    elif sb3_algorithm == "TQC":
+        from sb3_contrib import TQC
+
+        kwargs = _off_policy_kwargs(
+            config=config,
+            env=env,
+            seed=seed,
+            feature_extractor=feature_extractor,
+            encoder_checkpoint=encoder_checkpoint,
+            freeze_encoder=freeze_encoder,
+        )
+        kwargs["top_quantiles_to_drop_per_net"] = config.rl.top_quantiles_to_drop_per_net
+        if _uses_her(algorithm, config):
+            kwargs["replay_buffer_class"] = HerReplayBuffer
+            kwargs["replay_buffer_kwargs"] = config.rl.replay_buffer_kwargs
+        model = TQC(**kwargs)
     elif sb3_algorithm == "TD3":
         model = TD3(config.rl.policy, env, learning_rate=config.rl.learning_rate, seed=seed)
     else:
@@ -167,22 +171,30 @@ def _policy_kwargs(
     encoder_checkpoint: str | Path | None,
     freeze_encoder: bool,
 ) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {}
+    if config.rl.policy_net_arch:
+        kwargs["net_arch"] = config.rl.policy_net_arch
+    if config.rl.n_critics is not None:
+        kwargs["n_critics"] = config.rl.n_critics
     if feature_extractor is None:
-        return {}
+        return kwargs
     if feature_extractor != "jepa":
         raise ValueError(f"Unsupported feature extractor: {feature_extractor}")
     if encoder_checkpoint is None:
         raise ValueError("--encoder-checkpoint is required when --feature-extractor jepa is used.")
-    return jepa_feature_extractor_kwargs(
-        encoder_checkpoint=encoder_checkpoint,
-        freeze_encoder=freeze_encoder,
-        include_desired_goal=False,
-        features_dim=config.jepa.latent_dim,
-        hidden_dims=config.jepa.hidden_dims,
-        activation=config.jepa.activation,
-        layer_norm=config.jepa.layer_norm,
-        normalize_output=config.jepa.normalize_latents,
+    kwargs.update(
+        jepa_feature_extractor_kwargs(
+            encoder_checkpoint=encoder_checkpoint,
+            freeze_encoder=freeze_encoder,
+            include_desired_goal=False,
+            features_dim=config.jepa.latent_dim,
+            hidden_dims=config.jepa.hidden_dims,
+            activation=config.jepa.activation,
+            layer_norm=config.jepa.layer_norm,
+            normalize_output=config.jepa.normalize_latents,
+        )
     )
+    return kwargs
 
 
 class _MetricsEvalCallback(BaseCallback):  # pragma: no cover - exercised in real runs
@@ -210,6 +222,7 @@ class _MetricsEvalCallback(BaseCallback):  # pragma: no cover - exercised in rea
             obs_mode=config.env.obs_mode,
             reward_mode=config.env.reward_mode,
             max_episode_steps=config.env.max_episode_steps,
+            time_feature_wrapper=config.rl.time_feature_wrapper,
         )
         self.early_stop = EarlyStopState(
             threshold=config.rl.early_stop_success,
@@ -282,6 +295,47 @@ class _MetricsEvalCallback(BaseCallback):  # pragma: no cover - exercised in rea
             )
         frame.to_csv(self.output_dir / "eval_metrics.csv", index=False)
         frame.to_csv(self.output_dir / "metrics.csv", index=False)
+
+
+def _uses_her(algorithm: str, config: BenchmarkConfig) -> bool:
+    return algorithm in {"SAC_HER", "TQC_HER"} or config.rl.replay_buffer_class == "HerReplayBuffer"
+
+
+def _off_policy_kwargs(
+    config: BenchmarkConfig,
+    env: Any,
+    seed: int,
+    feature_extractor: str | None,
+    encoder_checkpoint: str | Path | None,
+    freeze_encoder: bool,
+) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "policy": config.rl.policy,
+        "env": env,
+        "learning_rate": config.rl.learning_rate,
+        "buffer_size": config.rl.buffer_size,
+        "batch_size": config.rl.batch_size,
+        "gamma": config.rl.gamma,
+        "tau": config.rl.tau,
+        "learning_starts": config.rl.learning_starts,
+        "train_freq": config.rl.train_freq,
+        "gradient_steps": config.rl.gradient_steps,
+        "ent_coef": config.rl.ent_coef,
+        "use_sde": config.rl.use_sde,
+        "sde_sample_freq": config.rl.sde_sample_freq,
+        "use_sde_at_warmup": config.rl.use_sde_at_warmup,
+        "verbose": 0,
+        "seed": seed,
+    }
+    policy_kwargs = _policy_kwargs(
+        config=config,
+        feature_extractor=feature_extractor,
+        encoder_checkpoint=encoder_checkpoint,
+        freeze_encoder=freeze_encoder,
+    )
+    if policy_kwargs:
+        kwargs["policy_kwargs"] = policy_kwargs
+    return kwargs
 
 
 def _evaluate_sb3_model(

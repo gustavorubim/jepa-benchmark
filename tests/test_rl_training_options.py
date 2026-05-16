@@ -10,6 +10,11 @@ from jepa_robotics.rl.sb3_train import _policy_kwargs, train_rl_baseline
 
 def test_policy_kwargs_requires_jepa_checkpoint() -> None:
     config = BenchmarkConfig().smoke_copy()
+    config.rl.policy_net_arch = [32, 32]
+    config.rl.n_critics = 2
+    base_kwargs = _policy_kwargs(config, None, None, freeze_encoder=True)
+    assert base_kwargs["net_arch"] == [32, 32]
+    assert base_kwargs["n_critics"] == 2
     with pytest.raises(ValueError, match="encoder-checkpoint"):
         _policy_kwargs(config, "jepa", None, freeze_encoder=True)
     kwargs = _policy_kwargs(config, "jepa", Path("encoder.pt"), freeze_encoder=False)

@@ -39,12 +39,20 @@ class RLSection(BaseModel):
     skip_existing: bool = True
     learning_rate: float = 3e-4
     batch_size: int = 256
+    ent_coef: str | float = "auto"
     gamma: float = 0.98
     tau: float = 0.05
     buffer_size: int = 1_000_000
     learning_starts: int = 10_000
     train_freq: int = 1
     gradient_steps: int = 1
+    use_sde: bool = False
+    sde_sample_freq: int = -1
+    use_sde_at_warmup: bool = False
+    policy_net_arch: list[int] = Field(default_factory=list)
+    n_critics: int | None = None
+    top_quantiles_to_drop_per_net: int = 2
+    time_feature_wrapper: bool = False
     replay_buffer_class: str | None = None
     replay_buffer_kwargs: dict[str, Any] = Field(default_factory=dict)
 

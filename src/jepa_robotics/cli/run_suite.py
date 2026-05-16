@@ -150,6 +150,12 @@ def _phase_command(
             output_dir / "rl" / method / f"seed_{seed}" / "model.zip",
             output_dir / "rl" / method / f"seed_{seed}" / "metrics.csv",
         ]
+    if phase == "phase3_fetch_push_sparse_tqc":
+        method = "tqc_her"
+        return _train_rl_command(config_path, method, seed), [
+            output_dir / "rl" / method / f"seed_{seed}" / "model.zip",
+            output_dir / "rl" / method / f"seed_{seed}" / "metrics.csv",
+        ]
     if phase == "state_jepa":
         return [
             sys.executable,

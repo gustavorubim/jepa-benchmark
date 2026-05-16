@@ -94,10 +94,12 @@ def make_env(
     obs_mode: str = "state",
     reward_mode: str | None = None,
     max_episode_steps: int | None = None,
+    time_feature_wrapper: bool = False,
 ) -> gym.Env[Any, Any]:
     """Create a robotics environment or the built-in smoke-test environment."""
     if env_id == "ToyGoal-v0":
-        return ToyGoalEnv(max_episode_steps=max_episode_steps or 5, seed=seed)
+        toy_env = ToyGoalEnv(max_episode_steps=max_episode_steps or 5, seed=seed)
+        return _maybe_wrap_time_feature(toy_env, max_episode_steps, time_feature_wrapper)
 
     try:
         import gymnasium_robotics  # noqa: F401
@@ -116,10 +118,24 @@ def make_env(
     if obs_mode == "visual":
         from jepa_robotics.envs.observation_wrappers import VisualObservationWrapper
 
-        return VisualObservationWrapper(env)
+        return _maybe_wrap_time_feature(
+            VisualObservationWrapper(env), max_episode_steps, time_feature_wrapper
+        )
     if obs_mode != "state":
         raise ValueError("obs_mode must be 'state' or 'visual'")
-    return env
+    return _maybe_wrap_time_feature(env, max_episode_steps, time_feature_wrapper)
+
+
+def _maybe_wrap_time_feature(
+    env: gym.Env[Any, Any],
+    max_episode_steps: int | None,
+    enabled: bool,
+) -> gym.Env[Any, Any]:
+    if not enabled:
+        return env
+    from sb3_contrib.common.wrappers import TimeFeatureWrapper
+
+    return TimeFeatureWrapper(env, max_steps=max_episode_steps or 1000)
 
 
 def resolve_env_id(env_id: str) -> str:

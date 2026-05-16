@@ -22,6 +22,7 @@ def make_env_thunk(
     reward_mode: str | None = None,
     max_episode_steps: int | None = None,
     monitor_file: str | None = None,
+    time_feature_wrapper: bool = False,
 ) -> Callable[[], Any]:
     """Build a picklable environment thunk for SB3 vector environments."""
 
@@ -32,6 +33,7 @@ def make_env_thunk(
             obs_mode=obs_mode,
             reward_mode=reward_mode,
             max_episode_steps=max_episode_steps,
+            time_feature_wrapper=time_feature_wrapper,
         )
         if monitor_file is not None:
             return Monitor(env, filename=monitor_file)
@@ -49,6 +51,7 @@ def make_sb3_vec_env(
     reward_mode: str | None = None,
     max_episode_steps: int | None = None,
     monitor_dir: str | None = None,
+    time_feature_wrapper: bool = False,
 ) -> VecEnv:
     """Create an SB3 vector env using the repo's central environment factory."""
     env_count = max(1, n_envs)
@@ -66,6 +69,7 @@ def make_sb3_vec_env(
                 reward_mode=reward_mode,
                 max_episode_steps=max_episode_steps,
                 monitor_file=monitor_file,
+                time_feature_wrapper=time_feature_wrapper,
             )
         )
     if env_count > 1 and vec_env_type == "subproc":

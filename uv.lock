@@ -468,6 +468,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
+    { name = "sb3-contrib" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "seaborn" },
@@ -499,6 +500,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "rich", specifier = ">=13.7.0" },
+    { name = "sb3-contrib", specifier = ">=2.4.0" },
     { name = "scikit-learn", specifier = ">=1.4.0" },
     { name = "scipy", specifier = ">=1.12.0" },
     { name = "seaborn", specifier = ">=0.13.0" },
@@ -1360,6 +1362,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/6b/8c/b1e1666aef7fc6555094d73ae6cd981701781ae85b97ceefc0eebd0b4668/ruff-0.15.13-py3-none-win32.whl", hash = "sha256:4044f94208b3b05ba0fc4a4abd0558cf4d6459bd18325eead7fd8cc66f909b41", size = 10721455, upload-time = "2026-05-14T13:44:35.697Z" },
     { url = "https://files.pythonhosted.org/packages/ab/a6/870a3e8a50590bb92be184ad928c2922f088b00d9dc5c5ec7b924ee08c22/ruff-0.15.13-py3-none-win_amd64.whl", hash = "sha256:7064884d442b7d477b4e7473d12da7f08851d2b1982763c5d3f388a19468a1a4", size = 11900409, upload-time = "2026-05-14T13:44:30.389Z" },
     { url = "https://files.pythonhosted.org/packages/9b/36/9c015cd052fca743dae8cb2aeb16b551444787467db42ceab0fc968865af/ruff-0.15.13-py3-none-win_arm64.whl", hash = "sha256:2471da9bd1068c8c064b5fd9c0c4b6dddffd6369cb1cd68b29993b1709ff1b21", size = 11179336, upload-time = "2026-05-14T13:44:33.026Z" },
+]
+
+[[package]]
+name = "sb3-contrib"
+version = "2.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "stable-baselines3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/13/c1/d50b8f886c586864fbda8855c03b0da235dd345ff66e05500ef887711efe/sb3_contrib-2.8.0.tar.gz", hash = "sha256:25656d093169239db1081b7665091f168f6113776878387387fdf4e3e894c7f1", size = 90527, upload-time = "2026-04-01T10:59:58.367Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8c/17/3a00211e7453d382b98783995174e1f587c461719ac916078bac26dbe597/sb3_contrib-2.8.0-py3-none-any.whl", hash = "sha256:14c81ce4e15c747a13e2b1a8945e7658da6e320b1341b9e971358c35837598b2", size = 93043, upload-time = "2026-04-01T10:59:56.704Z" },
 ]
 
 [[package]]

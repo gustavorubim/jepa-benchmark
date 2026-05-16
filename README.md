@@ -52,7 +52,7 @@ written under `outputs/` and analyzed into `reports/`.
 flowchart TD
     Configs["YAML configs\nconfigs/experiments, configs/jepa"] --> CLI["CLI entry points\nsrc/jepa_robotics/cli"]
     CLI --> Env["envs\nGymnasium Robotics + ToyGoal"]
-    CLI --> RL["rl\nSB3 SAC / SAC+HER"]
+    CLI --> RL["rl\nSB3 SAC / SAC+HER / TQC+HER"]
     CLI --> Data["data\ntrajectory NPZ + windows"]
     CLI --> Train["training\nJEPA + autoencoder trainers"]
     CLI --> Eval["evaluation\nrollouts, probes, metrics"]
@@ -124,14 +124,14 @@ sequenceDiagram
 
 ### RL Baseline Pipeline
 
-Dense Fetch tasks use SAC. Sparse Fetch tasks use SAC with HER replay. Training uses SB3 vector
-environments, periodic cheap evaluations, a final full evaluation, optional early stopping, and
-timing metrics.
+Dense Fetch tasks use SAC. Sparse Fetch tasks use SAC or TQC with HER replay. Training uses SB3
+vector environments, periodic cheap evaluations, a final full evaluation, optional early stopping,
+and timing metrics.
 
 ```mermaid
 flowchart TD
     RLConfig["RL config\nalgorithm, n_envs, eval cadence,\nearly stop threshold"] --> VecEnv["make_sb3_vec_env\nDummyVecEnv or SubprocVecEnv"]
-    VecEnv --> SB3["SB3 model\nSAC / SAC+HER"]
+    VecEnv --> SB3["SB3 model\nSAC / SAC+HER / TQC+HER"]
     SB3 --> Replay["Replay buffer\nstandard or HER"]
     SB3 --> EvalCb["MetricsEvalCallback\ntrain eval + final eval"]
     EvalCb --> Metrics["metrics.csv / eval_metrics.csv\nreward, success, steps/sec,\neval seconds, early stop"]
@@ -371,7 +371,8 @@ evidence, and full configs are resumable multi-seed runs for reporting.
 
 ## RL Baselines
 
-Dense Fetch tasks use SAC. Sparse goal-conditioned Fetch tasks use SAC with HER replay:
+Dense Fetch tasks use SAC. Sparse goal-conditioned Fetch tasks use SAC with HER replay, with an
+optional TQC+HER comparison phase using `sb3-contrib`:
 
 ```bash
 uv run python -m jepa_robotics.cli.train_rl \
@@ -382,6 +383,11 @@ uv run python -m jepa_robotics.cli.train_rl \
 uv run python -m jepa_robotics.cli.train_rl \
   --config configs/experiments/phase3_fetch_push_sparse.yaml \
   --method sac_her \
+  --seed 0
+
+uv run python -m jepa_robotics.cli.train_rl \
+  --config configs/experiments/full/phase3_fetch_push_sparse_tqc.yaml \
+  --method tqc_her \
   --seed 0
 ```
 
@@ -404,11 +410,29 @@ RL configs support speed controls:
 rl:
   n_envs: 2
   vec_env_type: dummy
-  train_eval_episodes: 5
+  train_eval_episodes: 20
   final_eval_episodes: 20
   early_stop_success: 0.95
   early_stop_patience: 3
   skip_existing: true
+```
+
+Sparse FetchPush configs use RL Zoo-style HER controls:
+
+```yaml
+rl:
+  total_timesteps: 1000000
+  learning_rate: 0.001
+  batch_size: 512
+  gamma: 0.98
+  tau: 0.005
+  policy_net_arch: [512, 512, 512]
+  n_critics: 2
+  time_feature_wrapper: true
+  replay_buffer_class: HerReplayBuffer
+  replay_buffer_kwargs:
+    n_sampled_goal: 4
+    goal_selection_strategy: future
 ```
 
 Training-time evaluations use `train_eval_episodes`; the final row uses

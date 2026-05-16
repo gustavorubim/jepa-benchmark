@@ -1,13 +1,13 @@
 experiment:
-  name: phase3_fetch_push_sparse_full
-  output_dir: outputs/phase3_fetch_push_sparse_full
+  name: phase3_fetch_push_sparse_tqc_confirm
+  output_dir: outputs/phase3_fetch_push_sparse_tqc_confirm
   seeds: [0]
 env:
   id: FetchPush-v3
   obs_mode: state
   max_episode_steps: 50
 rl:
-  algorithm: SAC
+  algorithm: TQC
   policy: MultiInputPolicy
   replay_buffer_class: HerReplayBuffer
   replay_buffer_kwargs:
@@ -27,6 +27,7 @@ rl:
   batch_size: 512
   gamma: 0.98
   tau: 0.005
+  learning_starts: 5000
   policy_net_arch: [512, 512, 512]
   n_critics: 2
   time_feature_wrapper: true
@@ -39,6 +40,6 @@ jepa:
   latent_dim: 128
   hidden_dims: [256, 256]
   prediction_horizons: [1, 2, 4, 8]
-  epochs: 100
+  epochs: 60
 device:
   preferred: auto

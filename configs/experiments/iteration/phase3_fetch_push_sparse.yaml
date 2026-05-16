@@ -13,7 +13,7 @@ rl:
   replay_buffer_kwargs:
     n_sampled_goal: 4
     goal_selection_strategy: future
-    copy_info_dict: true
+    copy_info_dict: false
   total_timesteps: 250000
   eval_freq: 10000
   train_eval_episodes: 5
@@ -23,8 +23,14 @@ rl:
   vec_env_type: dummy
   early_stop_success: 0.80
   early_stop_patience: 2
+  learning_rate: 0.001
   learning_starts: 5000
-  batch_size: 256
+  batch_size: 512
+  gamma: 0.98
+  tau: 0.005
+  policy_net_arch: [512, 512, 512]
+  n_critics: 2
+  time_feature_wrapper: true
 dataset:
   source: mixture
   num_episodes: 250
