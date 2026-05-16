@@ -412,6 +412,18 @@ uv run python -m jepa_robotics.cli.run_suite \
   --phases stage1_fetch_reach \
   --max-parallel 2 \
   --output-dir outputs/stage1_fetch_reach_full
+
+uv run python -m jepa_robotics.cli.render_rollouts \
+  --experiment outputs/stage1_fetch_reach_full \
+  --methods sac sac_jepa jepa_mpc \
+  --episodes 3 \
+  --output-dir outputs/stage1_fetch_reach_full/videos
+
+uv run python -m jepa_robotics.render_rollouts \
+  --experiment outputs/stage1_fetch_reach_full \
+  --methods jepa_mpc \
+  --episodes 3 \
+  --budget 1920
 ```
 
 `stage1_fetch_reach` expands to `phase1_fetch_reach state_jepa jepa_sac jepa_mpc`. This gives one
