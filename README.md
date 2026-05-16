@@ -41,6 +41,300 @@ uv run python -m jepa_robotics.evaluate --config configs/jepa/jepa_mpc.yaml --sm
 uv run python -m jepa_robotics.plot --experiment outputs/smoke
 ```
 
+## Technical Design
+
+The benchmark is organized as a reproducible experiment system rather than a single training
+script. Config files define the environment, data, model, planner, device, and output layout;
+CLI entry points resolve those configs and call library modules; all long-running artifacts are
+written under `outputs/` and analyzed into `reports/`.
+
+```mermaid
+flowchart TD
+    Configs["YAML configs\nconfigs/experiments, configs/jepa"] --> CLI["CLI entry points\nsrc/jepa_robotics/cli"]
+    CLI --> Env["envs\nGymnasium Robotics + ToyGoal"]
+    CLI --> RL["rl\nSB3 SAC / SAC+HER"]
+    CLI --> Data["data\ntrajectory NPZ + windows"]
+    CLI --> Train["training\nJEPA + autoencoder trainers"]
+    CLI --> Eval["evaluation\nrollouts, probes, metrics"]
+    CLI --> Plan["planning\nlatent MPC + CEM"]
+    RL --> Outputs["outputs/<experiment>/..."]
+    Data --> Outputs
+    Train --> Outputs
+    Plan --> Outputs
+    Eval --> Outputs
+    Outputs --> Plot["plotting + analyze"]
+    Plot --> Reports["reports/<experiment>/\nplots, tables, report.md"]
+```
+
+### Repository Map
+
+```mermaid
+flowchart LR
+    Root["jepa_robotics"] --> CLI["cli"]
+    Root --> Config["config"]
+    Root --> Envs["envs"]
+    Root --> RL["rl"]
+    Root --> Data["data"]
+    Root --> Models["models"]
+    Root --> Training["training"]
+    Root --> Planning["planning"]
+    Root --> Eval["evaluation"]
+    Root --> Plotting["plotting"]
+    Root --> Utils["utils"]
+
+    CLI --> Commands["train_rl\ncollect_dataset\ntrain_jepa\ntrain_autoencoder\nevaluate\nrun_suite\nanalyze"]
+    Models --> ModelTypes["StateJEPA\nAutoencoderDynamics\nJepaFeatureExtractor"]
+    Training --> Trainers["jepa_trainer\nautoencoder_trainer\nEMA utilities"]
+    Planning --> Planners["LatentMPC\nCEM\nscoring"]
+    Plotting --> Artifacts["learning curves\nsample efficiency\nMPC diagnostics\ntables"]
+```
+
+### End-to-End Experiment Flow
+
+The suite driver is the orchestration layer. It creates a resolved config for each
+`(phase, seed)` pair, launches children with bounded parallelism, skips completed outputs, and
+stores status/provenance.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Suite as run_suite
+    participant Child as phase child process
+    participant Out as outputs/<suite>
+    participant Analyze as analyze
+    participant Reports as reports/<suite>
+
+    User->>Suite: phases, mode, optional seeds
+    Suite->>Suite: resolve mode configs
+    Suite->>Out: write suite_configs/*.yaml
+    loop phase x seed
+        Suite->>Out: check required outputs
+        alt completed and not --force
+            Suite->>Out: write skipped status
+        else needs run
+            Suite->>Child: launch train/eval command
+            Child->>Out: write metrics, checkpoints, logs
+            Suite->>Out: write completed/failed status
+        end
+    end
+    Suite->>Out: write suite_metadata.json
+    User->>Analyze: analyze outputs/<suite>
+    Analyze->>Reports: write tables and report.md
+```
+
+### RL Baseline Pipeline
+
+Dense Fetch tasks use SAC. Sparse Fetch tasks use SAC with HER replay. Training uses SB3 vector
+environments, periodic cheap evaluations, a final full evaluation, optional early stopping, and
+timing metrics.
+
+```mermaid
+flowchart TD
+    RLConfig["RL config\nalgorithm, n_envs, eval cadence,\nearly stop threshold"] --> VecEnv["make_sb3_vec_env\nDummyVecEnv or SubprocVecEnv"]
+    VecEnv --> SB3["SB3 model\nSAC / SAC+HER"]
+    SB3 --> Replay["Replay buffer\nstandard or HER"]
+    SB3 --> EvalCb["MetricsEvalCallback\ntrain eval + final eval"]
+    EvalCb --> Metrics["metrics.csv / eval_metrics.csv\nreward, success, steps/sec,\neval seconds, early stop"]
+    EvalCb --> Stop{"success >= threshold\nfor patience evals?"}
+    Stop -->|yes| Checkpoint["model.zip\nconfig_resolved.yaml"]
+    Stop -->|no| SB3
+    SB3 --> Checkpoint
+```
+
+The main RL objective is the standard discounted return:
+
+```math
+J(\pi) = \mathbb{E}_{\tau \sim \pi}\left[\sum_{t=0}^{T-1} \gamma^t r_t\right]
+```
+
+For goal-conditioned sparse tasks with HER, transitions are relabeled with alternate goals:
+
+```math
+(s_t, a_t, r_t, g) \rightarrow (s_t, a_t, r(s_{t+1}, g'), g')
+```
+
+### Dataset and Windowing Pipeline
+
+Trajectory collection stores explicit, versioned NPZ arrays. JEPA and autoencoder training consume
+fixed-horizon windows that are guaranteed not to cross episode, terminal, or truncation boundaries.
+
+```mermaid
+flowchart LR
+    Env["Goal env"] --> Policy["random policy\nor trained SB3 policy"]
+    Policy --> Collector["collector\nsingle env or vectorized random collection"]
+    Collector --> NPZ["trajectories.npz\nobservations, goals, actions,\nrewards, dones, episode ids"]
+    Collector --> Meta["metadata.json\nschema, env, seed, git commit"]
+    NPZ --> Windows["TrajectoryWindowDataset\nvalid windows only"]
+    Windows --> Split["episode-level train/val split"]
+    Split --> JEPA["JEPA trainer"]
+    Split --> AE["Autoencoder trainer"]
+```
+
+A valid window starting at index `i` with horizon `H` must satisfy:
+
+```math
+\text{episode_id}_{i+k} = \text{episode_id}_i,\quad k=0,\dots,H
+```
+
+and no interior transition may terminate or truncate:
+
+```math
+\neg \text{done}_{i+k},\quad k=0,\dots,H-1
+```
+
+### State JEPA Model
+
+The state JEPA path learns an action-conditioned latent dynamics model. The online encoder and
+predictor receive gradients; the target encoder is updated only by exponential moving average.
+
+```mermaid
+flowchart TD
+    S0["state s_t"] --> Online["online encoder f_theta"]
+    Online --> Z0["z_t"]
+    Actions["actions a_t ... a_t+H-1"] --> Predictor["action-conditioned predictor p_phi"]
+    Z0 --> Predictor
+    Predictor --> Preds["predicted latents z_hat_t+1 ... z_hat_t+H"]
+
+    Future["future states s_t+1 ... s_t+H"] --> Target["target encoder f_bar_theta\nstop-gradient"]
+    Target --> Targets["target latents z_bar_t+1 ... z_bar_t+H"]
+    Preds --> Loss["JEPA loss + variance/covariance regularization"]
+    Targets --> Loss
+    Loss --> Online
+    Loss --> Predictor
+    Online -. "EMA update" .-> Target
+```
+
+For a trajectory window, the target latents are:
+
+```math
+\bar{z}_{t+h} = \bar{f}_{\theta}(s_{t+h}),\quad h \in \{1,\dots,H\}
+```
+
+The predictor rolls forward in latent space:
+
+```math
+\hat{z}_{t+h} = p_{\phi}(\hat{z}_{t+h-1}, a_{t+h-1}),\quad \hat{z}_t = f_{\theta}(s_t)
+```
+
+The core predictive loss uses cosine distance with stop-gradient targets:
+
+```math
+L_{\text{pred}} =
+\frac{1}{H}\sum_{h=1}^{H}
+\left(2 - 2\cdot
+\frac{\hat{z}_{t+h}^{\top}\operatorname{sg}(\bar{z}_{t+h})}
+{\|\hat{z}_{t+h}\|_2\|\operatorname{sg}(\bar{z}_{t+h})\|_2}
+\right)
+```
+
+The target encoder update is EMA-only:
+
+```math
+\bar{\theta} \leftarrow m\bar{\theta} + (1-m)\theta
+```
+
+The implemented total loss is:
+
+```math
+L = L_{\text{pred}} + \lambda_{\text{var}}L_{\text{var}} +
+\lambda_{\text{cov}}L_{\text{cov}}
+```
+
+where `L_var` discourages latent collapse and `L_cov` penalizes off-diagonal covariance.
+
+### Autoencoder Baseline
+
+The autoencoder baseline provides a representation-learning control condition: it learns to
+reconstruct the current state and predict the next state through a latent dynamics step.
+
+```mermaid
+flowchart TD
+    State["state s_t"] --> Encoder["encoder e_psi"]
+    Encoder --> Latent["z_t"]
+    Latent --> Decoder1["decoder d_psi"]
+    Decoder1 --> Recon["reconstruction s_hat_t"]
+    Latent --> Dyn["latent predictor q_psi(z_t, a_t)"]
+    Action["action a_t"] --> Dyn
+    Dyn --> NextLatent["z_hat_t+1"]
+    NextLatent --> Decoder2["decoder d_psi"]
+    Decoder2 --> NextPred["next-state prediction s_hat_t+1"]
+```
+
+The autoencoder objective is:
+
+```math
+L_{\text{AE}} =
+\|d_{\psi}(e_{\psi}(s_t)) - s_t\|_2^2
++ \beta\|d_{\psi}(q_{\psi}(e_{\psi}(s_t), a_t)) - s_{t+1}\|_2^2
+```
+
+### Latent MPC Controller
+
+JEPA-MPC uses the trained JEPA model as a latent world model. At each environment step it samples
+or optimizes candidate action sequences, scores the terminal latent against a goal proxy, executes
+only the first action, and replans on the next state.
+
+```mermaid
+flowchart TD
+    Obs["current observation"] --> Context["encode z_0 and z_goal once"]
+    Bounds["action bounds"] --> Candidates["candidate action sequences"]
+    Context --> Candidates
+    Candidates --> Rollout["JEPA latent rollout"]
+    Rollout --> Score["score candidates"]
+    Score --> Select["select best sequence"]
+    Select --> Act["execute first action"]
+    Act --> EnvStep["environment step"]
+    EnvStep --> Diagnostics["MPC diagnostics\nscore stats, action norm,\nsmoothness, progress correlation"]
+    EnvStep --> Obs
+```
+
+The planner score for a candidate sequence `A = (a_0,\dots,a_{H-1})` is:
+
+```math
+\operatorname{score}(A) =
+-\left(\|\hat{z}_{H}(A)-z_{\text{goal}}\|_2^2
++ \lambda_a\sum_{h=0}^{H-1}\|a_h\|_2^2\right)
+```
+
+CEM updates a Gaussian action distribution from elite sequences:
+
+```math
+\mu \leftarrow \frac{1}{K}\sum_{i \in \mathcal{E}} A_i,\quad
+\sigma \leftarrow \max\left(\operatorname{std}_{i \in \mathcal{E}}(A_i), \sigma_{\min}\right)
+```
+
+### Analysis and Reporting
+
+Analysis is designed to be reproducible from saved logs. It does not depend on live training
+objects.
+
+```mermaid
+flowchart TD
+    Metrics["metrics.csv / eval_metrics.csv"] --> Aggregate["aggregate_metrics.csv\nfinal reward, final success,\nAUC, threshold steps"]
+    Aggregate --> Summary["summary_statistics.csv\nmean, SE, bootstrap 95% CI"]
+    Aggregate --> Thresholds["threshold_fractions.csv\nfraction of seeds reaching thresholds"]
+    Aggregate --> Tests["statistical_tests.csv\npaired tests + effect sizes"]
+    Metrics --> Plots["plots/*.png and *.pdf"]
+    Summary --> Report["report.md\ndirect verdict and caveats"]
+    Thresholds --> Report
+    Tests --> Report
+    Plots --> Report
+```
+
+Success AUC is computed from saved evaluation points:
+
+```math
+\operatorname{AUC}_{\text{success}} =
+\int_0^T \operatorname{success}(t)\,dt
+```
+
+The normalized AUC used for cross-run comparison is:
+
+```math
+\operatorname{nAUC}_{\text{success}} =
+\frac{\operatorname{AUC}_{\text{success}}}{T}
+```
+
 ## Experiment Suites and Runtime Tiers
 
 The suite driver launches one subprocess per `(phase, seed)` pair, caps concurrency with
