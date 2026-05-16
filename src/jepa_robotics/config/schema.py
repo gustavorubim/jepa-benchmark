@@ -12,6 +12,7 @@ class ExperimentSection(BaseModel):
     name: str = "smoke"
     output_dir: Path = Path("outputs/smoke")
     seeds: list[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
+    comparison_group: str | None = None
 
 
 class EnvSection(BaseModel):

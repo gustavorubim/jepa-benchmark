@@ -11,13 +11,26 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def plot_bar(df: pd.DataFrame, x: str, y: str, title: str, output_base: str | Path) -> None:
+def plot_bar(
+    df: pd.DataFrame,
+    x: str,
+    y: str,
+    title: str,
+    output_base: str | Path,
+    label_columns: list[str] | None = None,
+) -> None:
     output = Path(output_base)
     output.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(6, 4))
-    summary = df.groupby(x)[y].mean().reset_index()
-    ax.bar(summary[x].astype(str), summary[y])
-    ax.set_xlabel(x)
+    if label_columns:
+        labels = df[label_columns].astype(str).agg(" / ".join, axis=1)
+        summary = pd.DataFrame({"label": labels, y: df[y]}).groupby("label")[y].mean().reset_index()
+        ax.bar(summary["label"].astype(str), summary[y])
+        ax.set_xlabel(" / ".join(label_columns))
+    else:
+        summary = df.groupby(x)[y].mean().reset_index()
+        ax.bar(summary[x].astype(str), summary[y])
+        ax.set_xlabel(x)
     ax.set_ylabel(y)
     ax.set_title(title)
     fig.tight_layout()

@@ -38,6 +38,7 @@ def run(
     force: bool = False,
     output_dir: str | Path | None = None,
     command: list[str] | None = None,
+    generate_report: bool = True,
 ) -> Path:
     started = time.time()
     resolved_seeds = seeds or [0]
@@ -57,6 +58,7 @@ def run(
         "seeds": resolved_seeds,
         "max_parallel": max_parallel,
         "smoke_test": smoke_test,
+        "generate_report": generate_report,
         "start_time": started,
         **platform_metadata(Path.cwd()),
         "children": [],
@@ -83,6 +85,10 @@ def run(
     if failed:
         failed_names = ", ".join(f"{item['phase']}/seed_{item['seed']}" for item in failed)
         raise RuntimeError(f"Suite failed for: {failed_names}")
+    if generate_report:
+        from jepa_robotics.plotting.generate import generate_report_artifacts
+
+        generate_report_artifacts(suite_root)
     return suite_root
 
 
@@ -283,12 +289,15 @@ def _child_status(
 
 def main(argv: list[str] | None = None) -> None:  # pragma: no cover
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", default="iteration", choices=["iteration", "confirm", "full"])
+    parser.add_argument(
+        "--mode", default="iteration", choices=["iteration", "matched", "confirm", "full"]
+    )
     parser.add_argument("--phases", nargs="+", required=True)
     parser.add_argument("--seeds", nargs="+", type=int, default=[0])
     parser.add_argument("--max-parallel", type=int, default=1)
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--no-report", action="store_true")
     parser.add_argument("--output-dir", default=None)
     args = parser.parse_args(argv)
     print(
@@ -301,6 +310,7 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover
             force=args.force,
             output_dir=args.output_dir,
             command=sys.argv if argv is None else ["run_suite", *argv],
+            generate_report=not args.no_report,
         )
     )
 

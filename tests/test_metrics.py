@@ -30,6 +30,30 @@ def test_metric_aggregation() -> None:
     assert mean_standard_error(aggregate, "auc_success").loc[0, "count"] == 1
 
 
+def test_metric_aggregation_does_not_merge_envs_or_phases() -> None:
+    df = pd.DataFrame(
+        {
+            "phase": ["reach", "reach", "push", "push"],
+            "env_id": [
+                "FetchReachDense-v4",
+                "FetchReachDense-v4",
+                "FetchPushDense-v4",
+                "FetchPushDense-v4",
+            ],
+            "global_step": [0, 10, 0, 10],
+            "seed": [0, 0, 0, 0],
+            "method": ["sac", "sac", "sac", "sac"],
+            "mean_success_rate": [0.0, 1.0, 0.0, 0.1],
+            "mean_episode_reward": [-2.0, 0.0, -10.0, -9.0],
+        }
+    )
+    aggregate = aggregate_learning_metrics(df)
+    assert len(aggregate) == 2
+    by_env = dict(zip(aggregate["env_id"], aggregate["final_success_rate"], strict=True))
+    assert by_env["FetchReachDense-v4"] == 1.0
+    assert by_env["FetchPushDense-v4"] == 0.1
+
+
 def test_rollout_probe_and_noise() -> None:
     env = make_env("ToyGoal-v0", seed=0)
     policy = RandomPolicy(env.action_space, seed=0)
