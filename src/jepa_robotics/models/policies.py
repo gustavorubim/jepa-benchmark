@@ -17,8 +17,12 @@ class JepaFeatureExtractor(BaseFeaturesExtractor):
         observation_space: gym.Space[Any],
         encoder_checkpoint: str | None = None,
         features_dim: int = 128,
+        hidden_dims: list[int] | None = None,
+        activation: str = "silu",
+        layer_norm: bool = True,
+        normalize_output: bool = True,
         freeze_encoder: bool = True,
-        include_desired_goal: bool = True,
+        include_desired_goal: bool = False,
     ) -> None:
         super().__init__(observation_space, features_dim)
         dict_space = observation_space
@@ -34,7 +38,14 @@ class JepaFeatureExtractor(BaseFeaturesExtractor):
         achieved_dim = int(achieved_shape[0])
         goal_dim = int(goal_shape[0]) if include_desired_goal else 0
         self.include_desired_goal = include_desired_goal
-        self.encoder = StateEncoder(obs_dim + achieved_dim + goal_dim, latent_dim=features_dim)
+        self.encoder = StateEncoder(
+            obs_dim + achieved_dim + goal_dim,
+            latent_dim=features_dim,
+            hidden_dims=hidden_dims,
+            activation=activation,
+            layer_norm=layer_norm,
+            normalize_output=normalize_output,
+        )
         if encoder_checkpoint is not None:
             self.encoder.load_state_dict(th.load(encoder_checkpoint, map_location="cpu"))
         if freeze_encoder:

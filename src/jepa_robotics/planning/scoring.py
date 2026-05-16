@@ -30,19 +30,46 @@ def score_action_sequences(
         z0 = model.online_encoder(
             torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         )
-        actions = torch.as_tensor(action_sequences, dtype=torch.float32, device=device)
-        z0_batch = z0.repeat(actions.shape[0], 1)
-        preds = model.predictor.rollout(z0_batch, actions)
-        z_final = F.normalize(preds[:, -1], dim=-1)
         z_goal = model.target_encoder(
             torch.as_tensor(goal_proxy, dtype=torch.float32, device=device).unsqueeze(0)
         )
         z_goal = F.normalize(z_goal, dim=-1)
+    return score_action_sequences_from_latents(
+        model, z0, z_goal, action_sequences, lambda_action, device
+    )
+
+
+def score_action_sequences_from_latents(
+    model: StateJEPA,
+    z0: torch.Tensor,
+    z_goal: torch.Tensor,
+    action_sequences: np.ndarray,
+    lambda_action: float,
+    device: torch.device,
+) -> np.ndarray:
+    with torch.no_grad():
+        actions = torch.as_tensor(action_sequences, dtype=torch.float32, device=device)
+        z0_batch = z0.repeat(actions.shape[0], 1)
+        preds = model.predictor.rollout(z0_batch, actions)
+        z_final = F.normalize(preds[:, -1], dim=-1)
         latent_cost = (z_final - z_goal).pow(2).sum(dim=-1)
-        action_cost = (
-            torch.as_tensor(action_sequences, dtype=torch.float32, device=device)
-            .pow(2)
-            .sum(dim=(1, 2))
-        )
+        action_cost = actions.pow(2).sum(dim=(1, 2))
         score = -(latent_cost + lambda_action * action_cost)
     return score.cpu().numpy().astype(np.float32)
+
+
+def latent_goal_context(
+    model: StateJEPA,
+    obs: dict[str, np.ndarray],
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    state = stack_state(obs["observation"], obs["achieved_goal"])
+    goal_proxy = make_goal_proxy(obs)
+    with torch.no_grad():
+        z0 = model.online_encoder(
+            torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        )
+        z_goal = model.target_encoder(
+            torch.as_tensor(goal_proxy, dtype=torch.float32, device=device).unsqueeze(0)
+        )
+    return z0, F.normalize(z_goal, dim=-1)

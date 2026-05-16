@@ -10,7 +10,7 @@ import torch
 from jepa_robotics.models.jepa import StateJEPA
 from jepa_robotics.planning.action_sampling import sample_uniform_actions
 from jepa_robotics.planning.cem import cem_optimize
-from jepa_robotics.planning.scoring import score_action_sequences
+from jepa_robotics.planning.scoring import latent_goal_context, score_action_sequences_from_latents
 
 
 @dataclass(frozen=True)
@@ -19,6 +19,8 @@ class MPCDiagnostics:
     score_mean: float
     score_std: float
     selected_action_norm: float
+    selected_sequence_smoothness: float
+    latent_distance_to_goal: float
 
 
 class LatentMPC:
@@ -47,15 +49,16 @@ class LatentMPC:
         self.iterations = iterations
         self.lambda_action = lambda_action
         self.rng = np.random.default_rng(seed)
-        self.last_diagnostics = MPCDiagnostics(0.0, 0.0, 0.0, 0.0)
+        self.last_diagnostics = MPCDiagnostics(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     def act(self, obs: dict[str, np.ndarray], goal: np.ndarray | None = None) -> np.ndarray:
         del goal
+        z0, z_goal = latent_goal_context(self.model, obs, self.device)
         if self.planner == "cem":
             sequence, scores = cem_optimize(
                 rng=self.rng,
-                score_fn=lambda candidates: score_action_sequences(
-                    self.model, obs, candidates, self.lambda_action, self.device
+                score_fn=lambda candidates: score_action_sequences_from_latents(
+                    self.model, z0, z_goal, candidates, self.lambda_action, self.device
                 ),
                 horizon=self.horizon,
                 action_low=self.action_low,
@@ -70,15 +73,20 @@ class LatentMPC:
             candidates = sample_uniform_actions(
                 self.rng, self.num_candidates, self.horizon, self.action_low, self.action_high
             )
-            scores = score_action_sequences(
-                self.model, obs, candidates, self.lambda_action, self.device
+            scores = score_action_sequences_from_latents(
+                self.model, z0, z_goal, candidates, self.lambda_action, self.device
             )
             sequence = candidates[int(np.argmax(scores))]
         action = sequence[0].astype(np.float32)
+        smoothness = 0.0
+        if len(sequence) > 1:
+            smoothness = float(np.linalg.norm(np.diff(sequence, axis=0), axis=1).mean())
         self.last_diagnostics = MPCDiagnostics(
             best_candidate_score=float(np.max(scores)),
             score_mean=float(np.mean(scores)),
             score_std=float(np.std(scores)),
             selected_action_norm=float(np.linalg.norm(action)),
+            selected_sequence_smoothness=smoothness,
+            latent_distance_to_goal=float(-np.max(scores)),
         )
         return action

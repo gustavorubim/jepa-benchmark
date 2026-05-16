@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import torch
 
+from jepa_robotics.envs.make_env import make_env
 from jepa_robotics.models.autoencoder import AutoencoderDynamics
 from jepa_robotics.models.jepa import StateJEPA
+from jepa_robotics.models.policies import JepaFeatureExtractor
 from jepa_robotics.training.autoencoder_trainer import autoencoder_dynamics_loss
 
 
@@ -28,3 +30,20 @@ def test_autoencoder_loss() -> None:
     action = torch.randn(2, 2)
     loss = autoencoder_dynamics_loss(model, state, action, torch.randn(2, 4))
     assert torch.isfinite(loss)
+
+
+def test_jepa_feature_extractor_forward() -> None:
+    env = make_env("ToyGoal-v0", seed=0)
+    extractor = JepaFeatureExtractor(
+        env.observation_space,
+        features_dim=8,
+        hidden_dims=[16],
+        include_desired_goal=False,
+    )
+    obs = {
+        "observation": torch.zeros(2, 2),
+        "achieved_goal": torch.zeros(2, 2),
+        "desired_goal": torch.ones(2, 2),
+    }
+    features = extractor(obs)
+    assert features.shape == (2, 8)

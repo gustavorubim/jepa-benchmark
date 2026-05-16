@@ -65,9 +65,11 @@ def run(
         seed=seed,
     )
     rows, diagnostics = _evaluate_mpc(env, controller, config, seed)
+    summary = _mpc_summary(diagnostics)
     pd.DataFrame(rows).to_csv(out / "metrics.csv", index=False)
     pd.DataFrame(rows).to_csv(out / "eval_metrics.csv", index=False)
     pd.DataFrame(diagnostics).to_csv(out / "mpc_diagnostics.csv", index=False)
+    pd.DataFrame([summary]).to_csv(out / "mpc_summary.csv", index=False)
     dump_config(config, out / "config_resolved.yaml")
     (out / "stdout.log").write_text("evaluate completed\n", encoding="utf-8")
     (out / "stderr.log").write_text("", encoding="utf-8")
@@ -107,10 +109,12 @@ def _evaluate_mpc(
         total = 0.0
         last_success = 0.0
         for step in range(config.env.max_episode_steps):
+            goal_distance_before = float(np.linalg.norm(obs["achieved_goal"] - obs["desired_goal"]))
             started = time.perf_counter()
             action = controller.act(obs, obs["desired_goal"])
             planning_time_ms = (time.perf_counter() - started) * 1000.0
             obs, reward, terminated, truncated, info = env.step(action)
+            goal_distance_after = float(np.linalg.norm(obs["achieved_goal"] - obs["desired_goal"]))
             total += float(reward)
             last_success = float(info.get("is_success", 0.0))
             diagnostics.append(
@@ -119,12 +123,23 @@ def _evaluate_mpc(
                     "step": step,
                     "planning_time_ms": planning_time_ms,
                     "chosen_action_norm": controller.last_diagnostics.selected_action_norm,
+                    "selected_sequence_smoothness": (
+                        controller.last_diagnostics.selected_sequence_smoothness
+                    ),
+                    "candidate_score_mean": controller.last_diagnostics.score_mean,
+                    "candidate_score_std": controller.last_diagnostics.score_std,
+                    "best_candidate_score": controller.last_diagnostics.best_candidate_score,
                     "predicted_goal_latent_distance": (
-                        -controller.last_diagnostics.best_candidate_score
+                        controller.last_diagnostics.latent_distance_to_goal
                     ),
-                    "actual_goal_distance_after_step": float(
-                        np.linalg.norm(obs["achieved_goal"] - obs["desired_goal"])
+                    "predicted_latent_progress": (
+                        -controller.last_diagnostics.latent_distance_to_goal
                     ),
+                    "actual_goal_distance_before_step": goal_distance_before,
+                    "actual_goal_distance_after_step": goal_distance_after,
+                    "actual_goal_progress": goal_distance_before - goal_distance_after,
+                    "reward": float(reward),
+                    "is_success": last_success,
                 }
             )
             if terminated or truncated:
@@ -146,6 +161,24 @@ def _evaluate_mpc(
         }
     ]
     return rows, diagnostics
+
+
+def _mpc_summary(diagnostics: list[dict[str, float | int]]) -> dict[str, float]:
+    if not diagnostics:
+        return {"predicted_actual_progress_correlation": float("nan")}
+    frame = pd.DataFrame(diagnostics)
+    predicted_constant = frame["predicted_latent_progress"].nunique() < 2
+    actual_constant = frame["actual_goal_progress"].nunique() < 2
+    if predicted_constant or actual_constant:
+        correlation = float("nan")
+    else:
+        correlation = float(frame["predicted_latent_progress"].corr(frame["actual_goal_progress"]))
+    return {
+        "predicted_actual_progress_correlation": correlation,
+        "mean_action_norm": float(frame["chosen_action_norm"].mean()),
+        "mean_sequence_smoothness": float(frame["selected_sequence_smoothness"].mean()),
+        "mean_planning_time_ms": float(frame["planning_time_ms"].mean()),
+    }
 
 
 def _resolve_dataset_path(config: BenchmarkConfig, seed: int) -> Path:
