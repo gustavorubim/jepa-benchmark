@@ -1,0 +1,41 @@
+experiment:
+  name: phase1_fetch_reach_iteration
+  output_dir: outputs/phase1_fetch_reach_iteration
+  seeds: [0]
+env:
+  id: FetchReachDense-v3
+  obs_mode: state
+  max_episode_steps: 50
+rl:
+  algorithm: SAC
+  policy: MultiInputPolicy
+  total_timesteps: 100000
+  eval_freq: 5000
+  train_eval_episodes: 5
+  final_eval_episodes: 10
+  n_eval_episodes: 10
+  n_envs: 2
+  vec_env_type: dummy
+  early_stop_success: 0.95
+  early_stop_patience: 2
+  learning_starts: 1000
+  batch_size: 256
+dataset:
+  source: mixture
+  num_episodes: 250
+  max_episode_steps: 50
+  n_envs: 4
+jepa:
+  latent_dim: 128
+  hidden_dims: [256, 256]
+  prediction_horizons: [1, 2, 4]
+  batch_size: 512
+  epochs: 30
+mpc:
+  planner: cem
+  horizon: 6
+  num_candidates: 256
+  num_elites: 32
+  iterations: 3
+device:
+  preferred: auto

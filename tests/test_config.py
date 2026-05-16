@@ -25,6 +25,11 @@ def test_load_config_and_smoke_copy(tmp_path: Path) -> None:
     smoke = config.smoke_copy()
     assert smoke.env.id == "ToyGoal-v0"
     assert smoke.device.preferred == "cpu"
+    assert smoke.rl.train_eval_episodes == 1
+    assert smoke.rl.final_eval_episodes == 1
+    assert smoke.jepa.compile_model is False
+    assert smoke.jepa.amp is False
+    assert smoke.autoencoder.latent_dim == 8
 
 
 def test_dump_config_roundtrip(tmp_path: Path) -> None:

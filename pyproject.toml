@@ -35,7 +35,7 @@ dev = [
 ]
 
 [project.scripts]
-jepa-robotics = "jepa_robotics.cli.run_experiment:app"
+jepa-robotics = "jepa_robotics.cli.run_experiment:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -1,0 +1,37 @@
+experiment:
+  name: phase3_fetch_push_sparse_full
+  output_dir: outputs/phase3_fetch_push_sparse_full
+  seeds: [0, 1, 2, 3, 4]
+env:
+  id: FetchPush-v3
+  obs_mode: state
+  max_episode_steps: 50
+rl:
+  algorithm: SAC
+  policy: MultiInputPolicy
+  replay_buffer_class: HerReplayBuffer
+  replay_buffer_kwargs:
+    n_sampled_goal: 4
+    goal_selection_strategy: future
+    copy_info_dict: true
+  total_timesteps: 500000
+  eval_freq: 10000
+  train_eval_episodes: 5
+  final_eval_episodes: 20
+  n_eval_episodes: 20
+  n_envs: 2
+  vec_env_type: dummy
+  early_stop_success: 0.85
+  early_stop_patience: 3
+dataset:
+  source: mixture
+  num_episodes: 1000
+  max_episode_steps: 50
+  n_envs: 4
+jepa:
+  latent_dim: 128
+  hidden_dims: [256, 256]
+  prediction_horizons: [1, 2, 4, 8]
+  epochs: 100
+device:
+  preferred: auto

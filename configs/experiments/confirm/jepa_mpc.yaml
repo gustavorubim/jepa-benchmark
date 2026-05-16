@@ -1,0 +1,20 @@
+experiment:
+  name: jepa_mpc_confirm
+  output_dir: outputs/jepa_mpc_confirm
+  seeds: [0, 1, 2]
+env:
+  id: FetchReachDense-v3
+  obs_mode: state
+  max_episode_steps: 50
+rl:
+  n_eval_episodes: 20
+  final_eval_episodes: 20
+mpc:
+  planner: cem
+  horizon: 8
+  num_candidates: 512
+  num_elites: 64
+  iterations: 4
+  lambda_action: 0.001
+device:
+  preferred: auto
