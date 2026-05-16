@@ -12,7 +12,7 @@ import numpy as np
 from jepa_robotics.config.load import dump_config
 from jepa_robotics.config.schema import BenchmarkConfig
 from jepa_robotics.data.replay_buffer import TransitionBuffer
-from jepa_robotics.data.storage import save_trajectories_npz
+from jepa_robotics.data.storage import TrajectoryArrays, save_trajectories_npz
 from jepa_robotics.envs.make_env import make_env
 from jepa_robotics.envs.vector_env import make_sb3_vec_env
 from jepa_robotics.utils.provenance import git_commit
@@ -35,7 +35,7 @@ def collect_dataset(
         buffer = _collect_random_vectorized(config, seed)
     else:
         buffer = _collect_single_env(config, seed, policy_path)
-    arrays = buffer.to_arrays()
+    arrays = _sort_by_episode_timestep(buffer.to_arrays())
     save_trajectories_npz(
         path,
         arrays,
@@ -53,6 +53,21 @@ def collect_dataset(
     )
     dump_config(config, out / "config_resolved.yaml")
     return path
+
+
+def _sort_by_episode_timestep(arrays: TrajectoryArrays) -> TrajectoryArrays:
+    order = np.lexsort((arrays.timestep_ids, arrays.episode_ids))
+    return TrajectoryArrays(
+        observations=arrays.observations[order],
+        achieved_goals=arrays.achieved_goals[order],
+        desired_goals=arrays.desired_goals[order],
+        actions=arrays.actions[order],
+        rewards=arrays.rewards[order],
+        terminated=arrays.terminated[order],
+        truncated=arrays.truncated[order],
+        episode_ids=arrays.episode_ids[order],
+        timestep_ids=arrays.timestep_ids[order],
+    )
 
 
 def _collect_single_env(

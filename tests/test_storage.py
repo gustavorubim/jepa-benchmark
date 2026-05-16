@@ -64,6 +64,8 @@ def test_vectorized_random_collector(tmp_path: Path) -> None:
     metadata = json.loads((out / "metadata.json").read_text(encoding="utf-8"))
     assert arrays.num_transitions > 0
     assert metadata["collector_n_envs"] == 2
+    assert arrays.episode_ids.tolist() == sorted(arrays.episode_ids.tolist())
+    assert len(TrajectoryWindowDataset(arrays, horizon=1)) > 0
 
 
 def test_valid_windows_respect_episode_and_terminal_boundaries() -> None:
