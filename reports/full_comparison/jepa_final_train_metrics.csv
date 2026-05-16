@@ -1,0 +1,2 @@
+epoch,seed,method,train_loss,val_loss,cosine_similarity_h1,cosine_similarity_h2,latent_std_mean,latent_std_min,latent_norm_mean,learning_rate,source_path
+99,0,state_jepa,0.8415267467498779,0.8415267467498779,0.9956635632552208,0.9956635632552208,0.0869028195738792,0.0670689269900322,1.0,0.0003,outputs/state_jepa/jepa/state_jepa/seed_0/train_metrics.csv

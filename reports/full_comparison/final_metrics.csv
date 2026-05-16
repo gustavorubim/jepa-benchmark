@@ -1,0 +1,5 @@
+label,experiment,method,env_id,final_step,final_success_rate,final_mean_reward,best_success_rate,best_success_step,steps_to_success_50,auc_success_normalized,source_path
+FetchReach SAC,phase1_fetch_reach,sac,FetchReachDense-v3,250000,1.0,-0.8798309789453146,1.0,90000,30000.0,0.829,outputs/phase1_fetch_reach/rl/sac/seed_0/eval_metrics.csv
+FetchPushDense SAC,phase2_fetch_push_dense,sac,FetchPushDense-v3,500000,0.05,-7.822685141247322,0.2,360000,,0.0625,outputs/phase2_fetch_push_dense/rl/sac/seed_0/eval_metrics.csv
+FetchPushSparse SAC+HER,phase3_fetch_push_sparse,sac_her,FetchPush-v3,500000,0.9,-15.65,0.9,450000,400000.0,0.226,outputs/phase3_fetch_push_sparse/rl/sac_her/seed_0/eval_metrics.csv
+FetchReach JEPA-MPC,jepa_mpc,jepa_mpc,FetchReachDense-v3,0,0.35,-3.6559067287673295,0.35,0,,0.35,outputs/jepa_mpc/mpc/jepa_mpc/seed_0/eval_metrics.csv
