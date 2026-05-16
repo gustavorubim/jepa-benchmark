@@ -272,12 +272,12 @@ L_{\text{AE}} =
 ### Latent MPC Controller
 
 JEPA-MPC uses the trained JEPA model as a latent world model. At each environment step it samples
-or optimizes candidate action sequences, scores the terminal latent against a goal proxy, executes
-only the first action, and replans on the next state.
+or optimizes candidate action sequences, scores the terminal latent against a dataset-backed goal
+state, executes only the first action, and replans on the next state.
 
 ```mermaid
 flowchart TD
-    Obs["current observation"] --> Context["encode z_0 and z_goal once"]
+    Obs["current observation"] --> Context["encode z_0 and dataset-backed z_goal once"]
     Bounds["action bounds"] --> Candidates["candidate action sequences"]
     Context --> Candidates
     Candidates --> Rollout["JEPA latent rollout"]
@@ -311,18 +311,32 @@ objects.
 
 ```mermaid
 flowchart TD
-    Metrics["metrics.csv / eval_metrics.csv"] --> Aggregate["aggregate_metrics.csv\nfinal reward, final success,\nAUC, threshold steps"]
+    Metrics["metrics.csv / eval_metrics.csv"] --> Combined["metrics_combined.csv\nphase, env, method, seed,\nenvironment interactions, source"]
+    Combined --> Aggregate["aggregate_metrics.csv\nphase/env/method/seed rows\nfinal reward, final success,\nAUC, threshold steps"]
     Aggregate --> Summary["summary_statistics.csv\nmean, SE, bootstrap 95% CI"]
     Aggregate --> Thresholds["threshold_fractions.csv\nfraction of seeds reaching thresholds"]
-    Aggregate --> Tests["statistical_tests.csv\npaired tests + effect sizes"]
-    Metrics --> Plots["plots/*.png and *.pdf"]
+    Aggregate --> Tests["statistical_tests.csv\ncomparison readiness diagnostics"]
+    Metrics --> Plots["plots/*.png and *.pdf\nreal inputs only"]
     Summary --> Report["report.md\ndirect verdict and caveats"]
     Thresholds --> Report
     Tests --> Report
     Plots --> Report
 ```
 
-Success AUC is computed from saved evaluation points:
+Success AUC is computed from saved evaluation points. For sample-efficiency plots, the x-axis is
+`environment_interactions`, not raw learner updates. Plain RL methods use `global_step`.
+JEPA-backed methods add the configured dataset-collection cost:
+
+```math
+\operatorname{environment\_interactions} =
+\operatorname{global\_step} +
+\mathbf{1}_{\text{JEPA/AE-backed}}\cdot
+(\operatorname{dataset.num\_episodes}\times \operatorname{dataset.max\_episode\_steps})
+```
+
+This counts collection cost for JEPA-MPC and JEPA-feature RL before their first evaluation point.
+If a dataset was generated from an already-trained policy, the source-policy training cost is not
+recoverable from the current artifact and must be disclosed separately.
 
 ```math
 \operatorname{AUC}_{\text{success}} =
@@ -339,7 +353,8 @@ The normalized AUC used for cross-run comparison is:
 ## Experiment Suites and Runtime Tiers
 
 The suite driver launches one subprocess per `(phase, seed)` pair, caps concurrency with
-`--max-parallel`, records suite metadata, and skips completed children by default:
+`--max-parallel`, records suite metadata, skips completed children by default, and writes both
+analysis tables and plots under `reports/<suite>/` after the suite completes:
 
 ```bash
 uv run python -m jepa_robotics.cli.run_suite \
@@ -349,7 +364,8 @@ uv run python -m jepa_robotics.cli.run_suite \
 ```
 
 Suites default to `--seeds 0`. Pass explicit seeds, for example `--seeds 0 1 2`,
-when you want confirm or publishable multi-seed evidence. Use `--force` to rerun completed
+when you want confirm evidence. Treat publishable claims as requiring at least five seeds per
+method in the same phase/environment with matched budgets. Use `--force` to rerun completed
 outputs. Status and provenance files are written under:
 
 ```text
@@ -359,16 +375,52 @@ outputs/<mode>_suite/
   suite_configs/<phase>_seed_<seed>.yaml
 ```
 
+Pass `--no-report` only when you want to defer plot/table generation.
+
 Runtime tiers live in:
 
 ```text
 configs/experiments/iteration/
+configs/experiments/matched/
 configs/experiments/confirm/
 configs/experiments/full/
 ```
 
-Iteration configs are for local development, confirm configs are for stronger single-machine
-evidence, and full configs are resumable multi-seed runs for reporting.
+Benchmark interpretation is intentionally conservative:
+
+- `FetchReachDense-v4` is a sanity-check task for wiring, stability, and obvious regressions.
+- `FetchPushDense-v4` and sparse `FetchPush-v4` are the harder benchmark tasks.
+- Dense Fetch tasks use SAC baselines. Sparse Fetch tasks use goal-conditioned
+  SAC+HER and TQC+HER style baselines.
+- Do not report a method improvement unless the report has matched phase/environment rows,
+  enough seeds per method, and comparable interaction budgets.
+
+Iteration configs are for local development. Confirm and full configs are resumable real-task
+runs, but they are not automatically publishable: the suite CLI default remains one seed unless
+you pass explicit seeds.
+
+The compact matched-budget validation suite is:
+
+```bash
+uv run python -m jepa_robotics.cli.run_suite \
+  --mode matched \
+  --phases phase1_fetch_reach state_jepa phase3_fetch_push_dense \
+  --seeds 0 1 2 3 4 \
+  --max-parallel 3 \
+  --output-dir outputs/matched_reach_dense_6k
+
+uv run python -m jepa_robotics.cli.run_suite \
+  --mode matched \
+  --phases jepa_sac jepa_mpc \
+  --seeds 0 1 2 3 4 \
+  --max-parallel 2 \
+  --output-dir outputs/matched_reach_dense_6k
+```
+
+The Reach comparison uses `comparison_group: reach_dense_matched_6k`: SAC gets 6k RL
+interactions; JEPA-feature SAC gets 5k dataset interactions plus 1k RL interactions; JEPA-MPC
+gets 5k dataset interactions plus 1k evaluation interactions. This suite verifies budget
+accounting and analysis behavior; it is not a final Fetch performance benchmark.
 
 ## RL Baselines
 
@@ -549,7 +601,11 @@ uv run python -m jepa_robotics.cli.evaluate \
   --seed 0
 ```
 
-The planner supports random shooting and CEM. It logs planning time, selected action norm, predicted latent distance, actual goal distance, reward, and success metrics.
+The planner supports random shooting and CEM. During evaluation it builds a goal bank from the
+trajectory dataset and encodes the real stored state whose achieved goal is nearest the desired
+goal, instead of scoring against a fabricated target state. It logs planning time, selected action
+norm, predicted latent distance, actual goal distance, nearest dataset-goal distance, goal-source,
+reward, and success metrics.
 It also records action smoothness, candidate score summary statistics, actual goal progress,
 and predicted-vs-actual progress correlation in `mpc_diagnostics.csv` and
 `mpc_summary.csv`.
@@ -573,11 +629,11 @@ the encoder.
 
 ## Plot and Analyze
 
-Plots are generated from saved CSV logs, never from live training objects:
+Plots are generated from saved CSV logs, never from live training objects or synthetic stand-ins:
 
 ```bash
-uv run python -m jepa_robotics.cli.plot --experiment outputs/phase1_fetch_reach
 uv run python -m jepa_robotics.cli.analyze --experiment outputs/phase1_fetch_reach
+uv run python -m jepa_robotics.cli.plot --experiment outputs/phase1_fetch_reach
 ```
 
 Reports are written under:
@@ -585,15 +641,42 @@ Reports are written under:
 ```text
 reports/<experiment>/
   report.md
+  artifact_manifest.csv
   metrics_combined.csv
   plots/*.png
   plots/*.pdf
   tables/aggregate_metrics.csv
+  tables/robust_summary.csv
   tables/threshold_metrics.csv
   tables/statistical_tests.csv
 ```
 
-`analyze` writes:
+`analyze` and `plot` both regenerate the same report directory. `analyze` returns the tables path;
+`plot` returns the report path. The combined metrics file preserves:
+
+```text
+phase, env_id, method, seed, reward_mode, total_steps, source_path
+dataset_source, pretraining_env_steps, environment_interactions
+configured_environment_budget
+```
+
+Aggregate, summary, threshold, and comparison-readiness tables keep phase/environment context so
+`FetchReachDense-v4` SAC and `FetchPushDense-v4` SAC are not collapsed into a single `sac` row.
+
+Optional diagnostic plots are generated only from real inputs:
+
+```text
+JEPA loss/horizon/latent plots: train_metrics.csv and val_metrics.csv
+MPC plots: mpc_diagnostics.csv
+probe plots: probe_metrics.csv or probes.csv
+generalization heatmaps: generalization_metrics.csv
+```
+
+When those files are absent, `artifact_manifest.csv` and `report.md` mark the diagnostics as
+missing/not run instead of creating placeholder figures. Core sample-efficiency plots still come
+from `metrics.csv` / `eval_metrics.csv`.
+
+The report directory includes:
 
 ```text
 tables/summary_statistics.csv
@@ -601,8 +684,22 @@ tables/threshold_fractions.csv
 report.md
 ```
 
-The summary table includes mean, SE, and bootstrap 95% CI by method. Statistical tests include
-paired t-test, Wilcoxon fallback, and effect-size columns where enough paired seeds are present.
+The summary table includes mean, SE, and bootstrap 95% CI by phase, environment, and method.
+`robust_summary.csv` adds median, IQM, and bootstrap IQM intervals for seed-level metrics.
+`statistical_tests.csv` is deliberately a readiness diagnostic, not a p-value table. It marks
+whether each phase/environment has at least two methods, matched
+`configured_environment_budget`, and at least five seeds per method. Do not name a winner across
+phases, environments, unmatched budgets, or single-seed runs.
+
+Minimum defensible comparison design:
+
+- Pick one environment per claim, such as `FetchReachDense-v4` for a sanity check or
+  `FetchPush-v4` with HER/TQC+HER for a hard sparse-goal task.
+- Use matched environment-interaction budgets for every method in that claim.
+- Include JEPA dataset collection cost on the x-axis.
+- Use at least five seeds and report robust aggregate summaries before making sample-efficiency
+  claims.
+- Generate real diagnostics or mark them missing; do not substitute placeholder plots.
 
 ## Configs
 

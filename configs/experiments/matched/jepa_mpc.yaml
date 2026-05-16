@@ -1,0 +1,32 @@
+experiment:
+  name: reach_dense_matched_jepa_mpc
+  output_dir: outputs/reach_dense_matched_jepa_mpc
+  comparison_group: reach_dense_matched_6k
+  seeds: [0, 1, 2, 3, 4]
+env:
+  id: FetchReachDense-v4
+  obs_mode: state
+  max_episode_steps: 50
+rl:
+  n_eval_episodes: 20
+  final_eval_episodes: 20
+dataset:
+  source: random
+  num_episodes: 100
+  max_episode_steps: 50
+  n_envs: 4
+jepa:
+  latent_dim: 64
+  hidden_dims: [128, 128]
+  prediction_horizons: [1, 2, 4]
+  batch_size: 256
+  epochs: 5
+mpc:
+  planner: cem
+  horizon: 4
+  num_candidates: 64
+  num_elites: 8
+  iterations: 2
+  lambda_action: 0.001
+device:
+  preferred: auto

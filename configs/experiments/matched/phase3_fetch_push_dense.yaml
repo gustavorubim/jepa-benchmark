@@ -1,0 +1,27 @@
+experiment:
+  name: push_dense_sac_probe
+  output_dir: outputs/push_dense_sac_probe
+  comparison_group: push_dense_baseline_10k
+  seeds: [0, 1, 2, 3, 4]
+env:
+  id: FetchPushDense-v4
+  obs_mode: state
+  max_episode_steps: 50
+rl:
+  algorithm: SAC
+  policy: MultiInputPolicy
+  total_timesteps: 10000
+  eval_freq: 2000
+  train_eval_episodes: 5
+  final_eval_episodes: 5
+  n_eval_episodes: 5
+  n_envs: 2
+  vec_env_type: dummy
+  learning_starts: 1000
+dataset:
+  source: random
+  num_episodes: 100
+  max_episode_steps: 50
+  n_envs: 4
+device:
+  preferred: auto
