@@ -50,20 +50,20 @@ written under `outputs/` and analyzed into `reports/`.
 
 ```mermaid
 flowchart TD
-    Configs["YAML configs\nconfigs/experiments, configs/jepa"] --> CLI["CLI entry points\nsrc/jepa_robotics/cli"]
-    CLI --> Env["envs\nGymnasium Robotics + ToyGoal"]
-    CLI --> RL["rl\nSB3 SAC / SAC+HER / TQC+HER"]
-    CLI --> Data["data\ntrajectory NPZ + windows"]
-    CLI --> Train["training\nJEPA + autoencoder trainers"]
-    CLI --> Eval["evaluation\nrollouts, probes, metrics"]
-    CLI --> Plan["planning\nlatent MPC + CEM"]
-    RL --> Outputs["outputs/<experiment>/..."]
+    Configs["YAML configs<br/>configs/experiments, configs/jepa"] --> CLI["CLI entry points<br/>src/jepa_robotics/cli"]
+    CLI --> Env["envs<br/>Gymnasium Robotics + ToyGoal"]
+    CLI --> RL["rl<br/>SB3 SAC / SAC+HER / TQC+HER"]
+    CLI --> Data["data<br/>trajectory NPZ + windows"]
+    CLI --> Train["training<br/>JEPA + autoencoder trainers"]
+    CLI --> Eval["evaluation<br/>rollouts, probes, metrics"]
+    CLI --> Plan["planning<br/>latent MPC + CEM"]
+    RL --> Outputs["outputs/experiment/..."]
     Data --> Outputs
     Train --> Outputs
     Plan --> Outputs
     Eval --> Outputs
     Outputs --> Plot["plotting + analyze"]
-    Plot --> Reports["reports/<experiment>/\nplots, tables, report.md"]
+    Plot --> Reports["reports/experiment/<br/>plots, tables, report.md"]
 ```
 
 ### Repository Map
@@ -82,11 +82,11 @@ flowchart LR
     Root --> Plotting["plotting"]
     Root --> Utils["utils"]
 
-    CLI --> Commands["train_rl\ncollect_dataset\ntrain_jepa\ntrain_autoencoder\nevaluate\nrun_suite\nanalyze"]
-    Models --> ModelTypes["StateJEPA\nAutoencoderDynamics\nJepaFeatureExtractor"]
-    Training --> Trainers["jepa_trainer\nautoencoder_trainer\nEMA utilities"]
-    Planning --> Planners["LatentMPC\nCEM\nscoring"]
-    Plotting --> Artifacts["learning curves\nsample efficiency\nMPC diagnostics\ntables"]
+    CLI --> Commands["train_rl<br/>collect_dataset<br/>train_jepa<br/>train_autoencoder<br/>evaluate<br/>run_suite<br/>analyze"]
+    Models --> ModelTypes["StateJEPA<br/>AutoencoderDynamics<br/>JepaFeatureExtractor"]
+    Training --> Trainers["jepa_trainer<br/>autoencoder_trainer<br/>EMA utilities"]
+    Planning --> Planners["LatentMPC<br/>CEM<br/>scoring"]
+    Plotting --> Artifacts["learning curves<br/>sample efficiency<br/>MPC diagnostics<br/>tables"]
 ```
 
 ### End-to-End Experiment Flow
@@ -99,10 +99,10 @@ stores status/provenance.
 sequenceDiagram
     participant User
     participant Suite as run_suite
-    participant Child as phase child process
-    participant Out as outputs/<suite>
+    participant Child as phase_child
+    participant Out as suite_outputs
     participant Analyze as analyze
-    participant Reports as reports/<suite>
+    participant Reports as reports_dir
 
     User->>Suite: phases, mode, optional seeds
     Suite->>Suite: resolve mode configs
@@ -118,7 +118,7 @@ sequenceDiagram
         end
     end
     Suite->>Out: write suite_metadata.json
-    User->>Analyze: analyze outputs/<suite>
+    User->>Analyze: analyze suite outputs
     Analyze->>Reports: write tables and report.md
 ```
 
@@ -131,13 +131,13 @@ stopping, and timing metrics.
 
 ```mermaid
 flowchart TD
-    RLConfig["RL config\nalgorithm, n_envs, eval cadence,\nearly stop threshold"] --> VecEnv["make_sb3_vec_env\nDummyVecEnv or SubprocVecEnv"]
-    VecEnv --> SB3["SB3 model\nSAC / SAC+HER / TQC+HER"]
-    SB3 --> Replay["Replay buffer\nstandard or HER"]
-    SB3 --> EvalCb["MetricsEvalCallback\ntrain eval + final eval"]
-    EvalCb --> Metrics["metrics.csv / eval_metrics.csv\nreward, success, steps/sec,\neval seconds, early stop"]
-    EvalCb --> Stop{"success >= threshold\nfor patience evals?"}
-    Stop -->|yes| Checkpoint["model.zip\nconfig_resolved.yaml"]
+    RLConfig["RL config<br/>algorithm, n_envs, eval cadence,<br/>early stop threshold"] --> VecEnv["make_sb3_vec_env<br/>DummyVecEnv or SubprocVecEnv"]
+    VecEnv --> SB3["SB3 model<br/>SAC / SAC+HER / TQC+HER"]
+    SB3 --> Replay["Replay buffer<br/>standard or HER"]
+    SB3 --> EvalCb["MetricsEvalCallback<br/>train eval + final eval"]
+    EvalCb --> Metrics["metrics.csv / eval_metrics.csv<br/>reward, success, steps/sec,<br/>eval seconds, early stop"]
+    EvalCb --> Stop{"success >= threshold<br/>for patience evals?"}
+    Stop -->|yes| Checkpoint["model.zip<br/>config_resolved.yaml"]
     Stop -->|no| SB3
     SB3 --> Checkpoint
 ```
@@ -161,11 +161,11 @@ fixed-horizon windows that are guaranteed not to cross episode, terminal, or tru
 
 ```mermaid
 flowchart LR
-    Env["Goal env"] --> Policy["random policy\nor trained SB3 policy"]
-    Policy --> Collector["collector\nsingle env or vectorized random collection"]
-    Collector --> NPZ["trajectories.npz\nobservations, goals, actions,\nrewards, dones, episode ids"]
-    Collector --> Meta["metadata.json\nschema, env, seed, git commit"]
-    NPZ --> Windows["TrajectoryWindowDataset\nvalid windows only"]
+    Env["Goal env"] --> Policy["random policy<br/>or trained SB3 policy"]
+    Policy --> Collector["collector<br/>single env or vectorized random collection"]
+    Collector --> NPZ["trajectories.npz<br/>observations, goals, actions,<br/>rewards, dones, episode ids"]
+    Collector --> Meta["metadata.json<br/>schema, env, seed, git commit"]
+    NPZ --> Windows["TrajectoryWindowDataset<br/>valid windows only"]
     Windows --> Split["episode-level train/val split"]
     Split --> JEPA["JEPA trainer"]
     Split --> AE["Autoencoder trainer"]
@@ -174,13 +174,14 @@ flowchart LR
 A valid window starting at index `i` with horizon `H` must satisfy:
 
 ```math
-\text{episode_id}_{i+k} = \text{episode_id}_i,\quad k=0,\dots,H
+\mathrm{episodeId}_{i+k} = \mathrm{episodeId}_i,\quad k=0,\dots,H
 ```
 
 and no interior transition may terminate or truncate:
 
 ```math
-\neg \text{done}_{i+k},\quad k=0,\dots,H-1
+\neg\left(\mathrm{terminated}_{i+k} \lor \mathrm{truncated}_{i+k}\right),
+\quad k=0,\dots,H-1
 ```
 
 ### State JEPA Model
@@ -196,7 +197,7 @@ flowchart TD
     Z0 --> Predictor
     Predictor --> Preds["predicted latents z_hat_t+1 ... z_hat_t+H"]
 
-    Future["future states s_t+1 ... s_t+H"] --> Target["target encoder f_bar_theta\nstop-gradient"]
+    Future["future states s_t+1 ... s_t+H"] --> Target["target encoder f_bar_theta<br/>stop-gradient"]
     Target --> Targets["target latents z_bar_t+1 ... z_bar_t+H"]
     Preds --> Loss["JEPA loss + variance/covariance regularization"]
     Targets --> Loss
@@ -285,7 +286,7 @@ flowchart TD
     Score --> Select["select best sequence"]
     Select --> Act["execute first action"]
     Act --> EnvStep["environment step"]
-    EnvStep --> Diagnostics["MPC diagnostics\nscore stats, action norm,\nsmoothness, progress correlation"]
+    EnvStep --> Diagnostics["MPC diagnostics<br/>score stats, action norm,<br/>smoothness, progress correlation"]
     EnvStep --> Obs
 ```
 
@@ -311,13 +312,13 @@ objects.
 
 ```mermaid
 flowchart TD
-    Metrics["metrics.csv / eval_metrics.csv"] --> Combined["metrics_combined.csv\nphase, env, method, seed,\nenvironment interactions, source"]
-    Combined --> Aggregate["aggregate_metrics.csv\nphase/env/method/seed rows\nfinal reward, final success,\nAUC, threshold steps"]
-    Aggregate --> Summary["summary_statistics.csv\nmean, SE, bootstrap 95% CI"]
-    Aggregate --> Thresholds["threshold_fractions.csv\nfraction of seeds reaching thresholds"]
-    Aggregate --> Tests["statistical_tests.csv\ncomparison readiness diagnostics"]
-    Metrics --> Plots["plots/*.png and *.pdf\nreal inputs only"]
-    Summary --> Report["report.md\ndirect verdict and caveats"]
+    Metrics["metrics.csv / eval_metrics.csv"] --> Combined["metrics_combined.csv<br/>phase, env, method, seed,<br/>environment interactions, source"]
+    Combined --> Aggregate["aggregate_metrics.csv<br/>phase/env/method/seed rows<br/>final reward, final success,<br/>AUC, threshold steps"]
+    Aggregate --> Summary["summary_statistics.csv<br/>mean, SE, bootstrap 95% CI"]
+    Aggregate --> Thresholds["threshold_fractions.csv<br/>fraction of seeds reaching thresholds"]
+    Aggregate --> Tests["statistical_tests.csv<br/>comparison readiness diagnostics"]
+    Metrics --> Plots["plots/*.png and *.pdf<br/>real inputs only"]
+    Summary --> Report["report.md<br/>direct verdict and caveats"]
     Thresholds --> Report
     Tests --> Report
     Plots --> Report
@@ -328,15 +329,16 @@ Success AUC is computed from saved evaluation points. For sample-efficiency plot
 JEPA-backed methods add the configured dataset-collection cost:
 
 ```math
-\operatorname{environment\_interactions} =
-\operatorname{global\_step} +
+\mathrm{environmentInteractions} =
+\mathrm{globalStep} +
 \mathbf{1}_{\text{JEPA/AE-backed}}\cdot
-(\operatorname{dataset.num\_episodes}\times \operatorname{dataset.max\_episode\_steps})
+(\mathrm{datasetEpisodes}\times \mathrm{episodeSteps})
 ```
 
 This counts collection cost for JEPA-MPC and JEPA-feature RL before their first evaluation point.
-If a dataset was generated from an already-trained policy, the source-policy training cost is not
-recoverable from the current artifact and must be disclosed separately.
+When collection uses a saved policy checkpoint, dataset metadata also records `policy_source_path`
+and `policy_source_steps` from the source policy's `config_resolved.yaml`; analysis adds that
+source-policy training cost to the interaction budget when the artifact is available.
 
 ```math
 \operatorname{AUC}_{\text{success}} =
@@ -354,7 +356,9 @@ The normalized AUC used for cross-run comparison is:
 
 The suite driver launches one subprocess per `(phase, seed)` pair, caps concurrency with
 `--max-parallel`, records suite metadata, skips completed children by default, and writes both
-analysis tables and plots under `reports/<suite>/` after the suite completes:
+analysis tables and plots under `reports/<suite>/` after the suite completes. Suite phases run in
+dependency waves where needed: `jepa_sac` waits for same-seed `state_jepa` when both phases are in
+the same suite, so the feature-SAC phase can use the freshly trained encoder.
 
 ```bash
 uv run python -m jepa_robotics.cli.run_suite \
@@ -399,21 +403,29 @@ Iteration configs are for local development. Confirm and full configs are resuma
 runs, but they are not automatically publishable: the suite CLI default remains one seed unless
 you pass explicit seeds.
 
+The Stage 1 reach-only demonstration suite keeps the environment fixed to `FetchReachDense-v4`
+and runs the full wiring path before moving to Push:
+
+```bash
+uv run python -m jepa_robotics.cli.run_suite \
+  --mode full \
+  --phases stage1_fetch_reach \
+  --max-parallel 2 \
+  --output-dir outputs/stage1_fetch_reach_full
+```
+
+`stage1_fetch_reach` expands to `phase1_fetch_reach state_jepa jepa_sac jepa_mpc`. This gives one
+plain SAC baseline, one random-trajectory JEPA pretraining run, one frozen-JEPA SAC run, one
+JEPA-MPC evaluation, and the standard report artifacts under the suite output directory. Use
+additional seeds only after the one-seed run is clean.
+
 The compact matched-budget validation suite is:
 
 ```bash
 uv run python -m jepa_robotics.cli.run_suite \
   --mode matched \
-  --phases phase1_fetch_reach state_jepa phase3_fetch_push_dense \
-  --seeds 0 1 2 3 4 \
+  --phases phase1_fetch_reach state_jepa jepa_sac jepa_mpc phase3_fetch_push_dense \
   --max-parallel 3 \
-  --output-dir outputs/matched_reach_dense_6k
-
-uv run python -m jepa_robotics.cli.run_suite \
-  --mode matched \
-  --phases jepa_sac jepa_mpc \
-  --seeds 0 1 2 3 4 \
-  --max-parallel 2 \
   --output-dir outputs/matched_reach_dense_6k
 ```
 
@@ -421,6 +433,12 @@ The Reach comparison uses `comparison_group: reach_dense_matched_6k`: SAC gets 6
 interactions; JEPA-feature SAC gets 5k dataset interactions plus 1k RL interactions; JEPA-MPC
 gets 5k dataset interactions plus 1k evaluation interactions. This suite verifies budget
 accounting and analysis behavior; it is not a final Fetch performance benchmark.
+
+The full Reach sanity-check suite defaults to one seed and uses `comparison_group: reach_dense_full_100k`:
+plain SAC gets 100k RL interactions, JEPA-feature SAC gets 50k random
+dataset interactions plus 50k RL interactions, and JEPA-MPC sweeps 400, 1000, and 1920 dataset
+episodes. Dense Push full configs use `comparison_group: push_dense_full_50k` for the SAC
+baseline.
 
 ## RL Baselines
 
@@ -519,6 +537,11 @@ observations, achieved_goals, desired_goals, actions, rewards,
 terminated, truncated, episode_ids, timestep_ids
 ```
 
+The dataset `metadata.json` includes provenance fields such as `collector_n_envs`,
+`collector_vec_env_type`, `policy_source_path`, and `policy_source_steps`. `policy_source_steps`
+is zero for random collection and is populated from the source policy's resolved config when a
+policy checkpoint is supplied.
+
 Random-policy collection can use multiple vectorized workers:
 
 ```yaml
@@ -610,6 +633,19 @@ It also records action smoothness, candidate score summary statistics, actual go
 and predicted-vs-actual progress correlation in `mpc_diagnostics.csv` and
 `mpc_summary.csv`.
 
+JEPA-MPC configs can set `mpc.dataset_budgets` to evaluate multiple prefixes of the same collected
+dataset. Each budget writes its own sliced dataset and JEPA checkpoint under:
+
+```text
+outputs/<experiment>/mpc/jepa_mpc/seed_<seed>/budget_<episodes>/
+  trajectories.npz
+  jepa/
+```
+
+The combined `metrics.csv`, `eval_metrics.csv`, `mpc_diagnostics.csv`, and `mpc_summary.csv`
+include `budget_episodes`; JEPA-MPC metric rows also record `pretraining_env_steps` and
+`configured_environment_budget`.
+
 ## JEPA-Pretrained SAC
 
 SAC can be run with a frozen or fine-tuned JEPA encoder feature extractor:
@@ -657,7 +693,7 @@ reports/<experiment>/
 ```text
 phase, env_id, method, seed, reward_mode, total_steps, source_path
 dataset_source, pretraining_env_steps, environment_interactions
-configured_environment_budget
+policy_source_steps, configured_environment_budget
 ```
 
 Aggregate, summary, threshold, and comparison-readiness tables keep phase/environment context so
@@ -687,16 +723,18 @@ report.md
 The summary table includes mean, SE, and bootstrap 95% CI by phase, environment, and method.
 `robust_summary.csv` adds median, IQM, and bootstrap IQM intervals for seed-level metrics.
 `statistical_tests.csv` is deliberately a readiness diagnostic, not a p-value table. It marks
-whether each phase/environment has at least two methods, matched
-`configured_environment_budget`, and at least five seeds per method. Do not name a winner across
-phases, environments, unmatched budgets, or single-seed runs.
+whether each comparison group/environment has at least two methods, approximately matched
+`configured_environment_budget`, and at least five seeds per method. Budgets within 1% are treated
+as matched to avoid false negatives from small accounting differences. Do not name a winner across
+environments, unrelated comparison groups, unmatched budgets, or single-seed runs.
 
 Minimum defensible comparison design:
 
 - Pick one environment per claim, such as `FetchReachDense-v4` for a sanity check or
   `FetchPush-v4` with HER/TQC+HER for a hard sparse-goal task.
 - Use matched environment-interaction budgets for every method in that claim.
-- Include JEPA dataset collection cost on the x-axis.
+- Include JEPA dataset collection cost, plus recorded source-policy training cost when present,
+  on the x-axis.
 - Use at least five seeds and report robust aggregate summaries before making sample-efficiency
   claims.
 - Generate real diagnostics or mark them missing; do not substitute placeholder plots.
