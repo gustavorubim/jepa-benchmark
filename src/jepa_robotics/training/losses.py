@@ -44,4 +44,12 @@ def jepa_prediction_loss(
         "latent_std_min": float(flat_latents.std(dim=0).min().detach().cpu()),
         "latent_norm_mean": float(flat_latents.norm(dim=-1).mean().detach().cpu()),
     }
+    normalized_predictions = F.normalize(predictions.detach(), dim=-1)
+    normalized_targets = F.normalize(targets.detach(), dim=-1)
+    cosine = F.cosine_similarity(normalized_predictions, normalized_targets, dim=-1)
+    mse = (predictions.detach() - targets.detach()).pow(2).mean(dim=-1)
+    for horizon_index in range(predictions.shape[1]):
+        horizon = horizon_index + 1
+        metrics[f"cosine_similarity_h{horizon}"] = float(cosine[:, horizon_index].mean().cpu())
+        metrics[f"prediction_mse_h{horizon}"] = float(mse[:, horizon_index].mean().cpu())
     return total, metrics

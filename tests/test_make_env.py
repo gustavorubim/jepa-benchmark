@@ -5,6 +5,7 @@ import numpy as np
 from jepa_robotics.envs.make_env import make_env, resolve_env_id
 from jepa_robotics.envs.observation_wrappers import flatten_goal_observation, jepa_state_observation
 from jepa_robotics.envs.reward_wrappers import ReachShapedReward
+from jepa_robotics.envs.vector_env import make_sb3_vec_env
 from jepa_robotics.envs.wrappers import InfoRecorder
 
 
@@ -36,3 +37,18 @@ def test_wrappers_record_info_and_shape_reward() -> None:
 
 def test_fetch_v3_ids_resolve_to_current_version() -> None:
     assert resolve_env_id("FetchReachDense-v3") == "FetchReachDense-v4"
+
+
+def test_dummy_vector_env_supports_multiple_toy_envs(tmp_path) -> None:
+    vec_env = make_sb3_vec_env(
+        "ToyGoal-v0",
+        seed=0,
+        n_envs=2,
+        vec_env_type="dummy",
+        max_episode_steps=2,
+        monitor_dir=str(tmp_path),
+    )
+    obs = vec_env.reset()
+    assert isinstance(obs, dict)
+    assert obs["observation"].shape == (2, 2)
+    vec_env.close()
