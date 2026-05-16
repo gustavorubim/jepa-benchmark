@@ -1,6 +1,7 @@
 experiment:
   name: jepa_mpc_full
   output_dir: outputs/jepa_mpc_full
+  comparison_group: reach_dense_full_100k
   seeds: [0]
 env:
   id: FetchReachDense-v4
@@ -9,12 +10,24 @@ env:
 rl:
   n_eval_episodes: 20
   final_eval_episodes: 20
+dataset:
+  source: random
+  num_episodes: 1920
+  max_episode_steps: 50
+  n_envs: 4
+jepa:
+  latent_dim: 128
+  hidden_dims: [256, 256]
+  prediction_horizons: [1, 2, 4]
+  batch_size: 256
+  epochs: 20
 mpc:
   planner: cem
-  horizon: 8
-  num_candidates: 512
-  num_elites: 64
-  iterations: 4
+  horizon: 4
+  num_candidates: 256
+  num_elites: 32
+  iterations: 3
   lambda_action: 0.001
+  dataset_budgets: [400, 1000, 1920]
 device:
   preferred: auto

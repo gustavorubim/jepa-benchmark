@@ -1,6 +1,7 @@
 experiment:
   name: phase3_fetch_push_dense_full
   output_dir: outputs/phase3_fetch_push_dense_full
+  comparison_group: push_dense_full_50k
   seeds: [0]
 env:
   id: FetchPushDense-v4
@@ -9,26 +10,15 @@ env:
 rl:
   algorithm: SAC
   policy: MultiInputPolicy
-  total_timesteps: 500000
-  eval_freq: 10000
-  train_eval_episodes: 20
+  total_timesteps: 50000
+  eval_freq: 5000
+  train_eval_episodes: 5
   final_eval_episodes: 20
   n_eval_episodes: 20
   n_envs: 2
   vec_env_type: dummy
   early_stop_success: 0.85
   early_stop_patience: 3
-  learning_starts: 5000
-dataset:
-  source: mixture
-  num_episodes: 1000
-  max_episode_steps: 50
-  n_envs: 4
-jepa:
-  latent_dim: 128
-  hidden_dims: [256, 256]
-  prediction_horizons: [1, 2, 4, 8]
-  batch_size: 512
-  epochs: 100
+  learning_starts: 2500
 device:
   preferred: auto

@@ -2,7 +2,7 @@ experiment:
   name: push_dense_sac_probe
   output_dir: outputs/push_dense_sac_probe
   comparison_group: push_dense_baseline_10k
-  seeds: [0, 1, 2, 3, 4]
+  seeds: [0]
 env:
   id: FetchPushDense-v4
   obs_mode: state
@@ -18,10 +18,5 @@ rl:
   n_envs: 2
   vec_env_type: dummy
   learning_starts: 1000
-dataset:
-  source: random
-  num_episodes: 100
-  max_episode_steps: 50
-  n_envs: 4
 device:
   preferred: auto

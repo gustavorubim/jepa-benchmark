@@ -2,7 +2,7 @@ experiment:
   name: reach_dense_matched_sac
   output_dir: outputs/reach_dense_matched_sac
   comparison_group: reach_dense_matched_6k
-  seeds: [0, 1, 2, 3, 4]
+  seeds: [0]
 env:
   id: FetchReachDense-v4
   obs_mode: state
@@ -18,16 +18,5 @@ rl:
   n_envs: 2
   vec_env_type: dummy
   learning_starts: 1000
-dataset:
-  source: random
-  num_episodes: 100
-  max_episode_steps: 50
-  n_envs: 4
-jepa:
-  latent_dim: 64
-  hidden_dims: [128, 128]
-  prediction_horizons: [1, 2, 4]
-  batch_size: 256
-  epochs: 5
 device:
   preferred: auto

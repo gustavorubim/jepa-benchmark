@@ -14,9 +14,9 @@ dataset:
 jepa:
   latent_dim: 128
   hidden_dims: [256, 256]
-  prediction_horizons: [1, 2, 4, 8]
-  batch_size: 512
-  epochs: 100
+  prediction_horizons: [1, 2, 4]
+  batch_size: 256
+  epochs: 20
   validation_fraction: 0.2
 device:
   preferred: auto

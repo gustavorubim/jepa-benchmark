@@ -2,7 +2,7 @@ experiment:
   name: reach_dense_matched_jepa_mpc
   output_dir: outputs/reach_dense_matched_jepa_mpc
   comparison_group: reach_dense_matched_6k
-  seeds: [0, 1, 2, 3, 4]
+  seeds: [0]
 env:
   id: FetchReachDense-v4
   obs_mode: state
