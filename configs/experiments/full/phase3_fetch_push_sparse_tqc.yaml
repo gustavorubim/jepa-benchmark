@@ -1,6 +1,7 @@
 experiment:
   name: phase3_fetch_push_sparse_tqc_full
   output_dir: outputs/phase3_fetch_push_sparse_tqc_full
+  comparison_group: push_full_1m_seed0
   seeds: [0]
 env:
   id: FetchPush-v4
@@ -21,7 +22,7 @@ rl:
   n_eval_episodes: 20
   n_envs: 2
   vec_env_type: dummy
-  early_stop_success: 0.85
+  early_stop_success: null
   early_stop_patience: 3
   learning_rate: 0.001
   batch_size: 512

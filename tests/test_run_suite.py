@@ -37,6 +37,12 @@ def test_phase_config_resolution_and_command_branches() -> None:
         command, required = _phase_command(phase, 0, Path("config.yaml"), Path("out") / phase)
         assert command[0] == sys.executable
         assert required
+    sparse_command, sparse_required = _phase_command(
+        "phase3_fetch_push_sparse", 0, Path("config.yaml"), Path("out") / "phase3_fetch_push_sparse"
+    )
+    assert "--method" in sparse_command
+    assert sparse_command[sparse_command.index("--method") + 1] == "tqc_her"
+    assert "tqc_her" in str(sparse_required[0])
     with pytest.raises(ValueError):
         _phase_command("unsupported", 0, Path("config.yaml"), Path("out"))
 

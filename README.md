@@ -455,8 +455,30 @@ accounting and analysis behavior; it is not a final Fetch performance benchmark.
 The full Reach sanity-check suite defaults to one seed and uses `comparison_group: reach_dense_full_100k`:
 plain SAC gets 100k RL interactions, JEPA-feature SAC gets 50k random
 dataset interactions plus 50k RL interactions, and JEPA-MPC sweeps 400, 1000, and 1920 dataset
-episodes. Dense Push full configs use `comparison_group: push_dense_full_50k` for the SAC
-baseline.
+episodes. Dense and sparse Push full configs use `comparison_group: push_full_1m_seed0` for the
+one-seed, roughly 1M-step pre-publication decision run.
+
+The pre-publication Push decision run should use one seed and roughly matched 1M-step budgets:
+
+```bash
+uv run python -m jepa_robotics.cli.run_suite \
+  --mode full \
+  --phases phase2_fetch_push_dense phase3_fetch_push_dense phase3_fetch_push_sparse \
+  --seeds 0 \
+  --max-parallel 1 \
+  --output-dir outputs/public_push_1m_seed0
+```
+
+For this public-readiness suite, `phase3_fetch_push_sparse` is routed through TQC+HER. Early stop is
+disabled in the full Push configs so the compared phases run the requested fixed, roughly 1M-step
+budget rather than stopping on an intermediate success threshold.
+
+Current SAC-JEPA Reach diagnosis: the 50k-step `sac_jepa` run is a bug signal, not a JEPA verdict.
+The earlier frozen feature extractor encoded `observation + achieved_goal` but dropped
+`desired_goal`, leaving the policy without the target location. Directly including `desired_goal`
+inside the pretrained encoder is checkpoint-incompatible because the state JEPA encoder was trained
+on `observation + achieved_goal`; the policy extractor now preserves checkpoint compatibility by
+appending the raw desired-goal vector after the JEPA latent.
 
 ## RL Baselines
 
