@@ -1,6 +1,12 @@
-# JEPA Robotics Benchmark
+# JEPA Robotics Benchmark Harness
 
 This repository compares classic model-free reinforcement learning baselines with JEPA-style latent predictive world models on goal-conditioned robotics tasks. The first maintained path is state-based Fetch reaching/pushing, with a deterministic `ToyGoal-v0` smoke path for fast CI and local validation.
+
+## Status
+
+Scaffold is ready, full results pending, current `reports/` are pipeline validation. Do not treat
+the checked-in workflow or current local reports as evidence that JEPA improves robotics sample
+efficiency yet.
 
 ## Install
 

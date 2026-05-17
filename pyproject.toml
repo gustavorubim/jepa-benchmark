@@ -1,7 +1,7 @@
 [project]
 name = "jepa-robotics"
 version = "0.1.0"
-description = "Small-scale JEPA world-model benchmark for goal-conditioned robotics."
+description = "Small-scale JEPA world-model benchmark harness for goal-conditioned robotics."
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
@@ -71,6 +71,10 @@ addopts = "-ra"
 [tool.coverage.run]
 branch = true
 source = ["src/jepa_robotics"]
+omit = [
+  "src/jepa_robotics/cli/render_rollouts.py",
+  "src/jepa_robotics/render_rollouts.py",
+]
 
 [tool.coverage.report]
 show_missing = true

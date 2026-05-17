@@ -248,7 +248,9 @@ def _load_jepa_model(config: Any, dataset: TrajectoryWindowDataset, jepa_dir: Pa
         predictor_hidden_dims=config.jepa.predictor_dims,
     ).to(device)
     model.online_encoder.load_state_dict(torch.load(jepa_dir / "encoder.pt", map_location=device))
-    model.target_encoder.load_state_dict(torch.load(jepa_dir / "target_encoder.pt", map_location=device))
+    model.target_encoder.load_state_dict(
+        torch.load(jepa_dir / "target_encoder.pt", map_location=device)
+    )
     model.predictor.load_state_dict(torch.load(jepa_dir / "predictor.pt", map_location=device))
     return model
 
