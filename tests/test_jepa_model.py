@@ -47,3 +47,22 @@ def test_jepa_feature_extractor_forward() -> None:
     }
     features = extractor(obs)
     assert features.shape == (2, 8)
+
+
+def test_jepa_feature_extractor_can_append_goal_without_checkpoint_dim_change() -> None:
+    env = make_env("ToyGoal-v0", seed=0)
+    extractor = JepaFeatureExtractor(
+        env.observation_space,
+        features_dim=8,
+        hidden_dims=[16],
+        include_desired_goal=False,
+        append_desired_goal=True,
+    )
+    obs = {
+        "observation": torch.zeros(2, 2),
+        "achieved_goal": torch.zeros(2, 2),
+        "desired_goal": torch.ones(2, 2),
+    }
+    features = extractor(obs)
+    assert features.shape == (2, 10)
+    assert torch.allclose(features[:, -2:], torch.ones(2, 2))

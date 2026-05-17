@@ -19,6 +19,7 @@ def test_policy_kwargs_requires_jepa_checkpoint() -> None:
         _policy_kwargs(config, "jepa", None, freeze_encoder=True)
     kwargs = _policy_kwargs(config, "jepa", Path("encoder.pt"), freeze_encoder=False)
     assert kwargs["features_extractor_kwargs"]["freeze_encoder"] is False
+    assert kwargs["features_extractor_kwargs"]["append_desired_goal"] is True
     with pytest.raises(ValueError, match="Unsupported feature"):
         _policy_kwargs(config, "unknown", Path("encoder.pt"), freeze_encoder=True)
 

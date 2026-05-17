@@ -23,8 +23,8 @@ class JepaFeatureExtractor(BaseFeaturesExtractor):
         normalize_output: bool = True,
         freeze_encoder: bool = True,
         include_desired_goal: bool = False,
+        append_desired_goal: bool = False,
     ) -> None:
-        super().__init__(observation_space, features_dim)
         dict_space = observation_space
         if not isinstance(dict_space, gym.spaces.Dict):
             raise TypeError("JepaFeatureExtractor requires a Dict observation space.")
@@ -37,7 +37,12 @@ class JepaFeatureExtractor(BaseFeaturesExtractor):
         obs_dim = int(obs_shape[0])
         achieved_dim = int(achieved_shape[0])
         goal_dim = int(goal_shape[0]) if include_desired_goal else 0
+        appended_goal_dim = int(goal_shape[0]) if append_desired_goal else 0
+        if include_desired_goal and append_desired_goal:
+            raise ValueError("Use include_desired_goal or append_desired_goal, not both.")
+        super().__init__(observation_space, features_dim + appended_goal_dim)
         self.include_desired_goal = include_desired_goal
+        self.append_desired_goal = append_desired_goal
         self.encoder = StateEncoder(
             obs_dim + achieved_dim + goal_dim,
             latent_dim=features_dim,
@@ -56,4 +61,7 @@ class JepaFeatureExtractor(BaseFeaturesExtractor):
         pieces = [observations["observation"], observations["achieved_goal"]]
         if self.include_desired_goal:
             pieces.append(observations["desired_goal"])
-        return self.encoder(th.cat(pieces, dim=-1))
+        latent = self.encoder(th.cat(pieces, dim=-1))
+        if self.append_desired_goal:
+            return th.cat([latent, observations["desired_goal"].float()], dim=-1)
+        return latent
